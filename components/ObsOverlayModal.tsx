@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Copy, Check, ExternalLink, Tv, Radio, Layers, Sparkles, Sliders, Info, Eye, EyeOff, Play } from 'lucide-react';
+import { X, Copy, Check, ExternalLink, Tv, Sparkles, Sliders, Info, Eye, EyeOff, Play } from 'lucide-react';
 import { GameState, ActionType } from '../types';
 
 interface ObsOverlayModalProps {
@@ -12,8 +12,6 @@ interface ObsOverlayModalProps {
   dispatch?: (action: ActionType) => void;
 }
 
-type OverlayLayout = 'broadcast' | 'follow' | 'default' | 'lineup' | 'rhe';
-
 export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
   isOpen,
   onClose,
@@ -23,7 +21,6 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
   state,
   dispatch,
 }) => {
-  const [selectedLayout, setSelectedLayout] = useState<OverlayLayout>('follow');
   const [isCopied, setIsCopied] = useState(false);
 
   if (!isOpen) return null;
@@ -34,9 +31,6 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
   // Construct OBS URL - roomCode is always included by default
   const params = new URLSearchParams();
   params.set('mode', 'obs');
-  if (selectedLayout !== 'follow') {
-    params.set('layout', selectedLayout);
-  }
   if (roomCode) {
     params.set('room', roomCode.toUpperCase());
   }
@@ -124,15 +118,7 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
     visibilityOff: language === 'zh' ? '轉播計分板：已隱藏 (OFF)' : language === 'ja' ? 'スコアバー：非表示 (OFF)' : 'Scorebug: Hidden (OFF)',
     visibilityOnHint: language === 'zh' ? '點擊隱藏計分條（局間休息或畫面重播時使用）' : language === 'ja' ? 'クリックで非表示（イニング間休憩やリプレイ時）' : 'Click to hide scorebug during breaks',
     visibilityOffHint: language === 'zh' ? '點擊開啟顯示（將立即播放開局滑入進場動畫！）' : language === 'ja' ? 'クリックで表示（開始アニメーションが自動再生されます！）' : 'Click to show (triggers broadcast entrance animation!)',
-    layoutLabel: language === 'zh' ? '1. 選擇圖層網址樣式' : language === 'ja' ? '1. オーバーレイスタイル選択' : '1. Select Overlay Style',
-    syncLabel: language === 'zh' ? '2. 跨裝置雲端同步' : language === 'ja' ? '2. クラウド同期' : '2. Cloud Live Sync',
-    syncStatus: language === 'zh' ? `已默認永久開啟 (#${roomCode})` : language === 'ja' ? `常時同期中 (#${roomCode})` : `Always Active (#${roomCode})`,
-    syncDesc: language === 'zh'
-      ? 'OBS 實況圖層與主控台／手機遙控器完全自動連動，比分、好壞球數、全壘打與三振特效即時無線同步呈現。'
-      : language === 'ja'
-      ? 'OBSとコントローラー／スマホ操作盤は完全リアルタイム同期。スコアや演出も遅延なく反映されます。'
-      : 'OBS overlay wirelessly syncs score, counts, and animations from your controller or mobile device in real time.',
-    urlLabel: language === 'zh' ? '3. 專屬透明圖層網址 (OBS 瀏覽器來源專用)' : language === 'ja' ? '3. 専用透過URL (OBSブラウザソース用)' : '3. OBS Browser Source URL',
+    urlLabel: language === 'zh' ? '專屬透明圖層網址 (OBS 瀏覽器來源專用)' : language === 'ja' ? '専用透過URL (OBSブラウザソース用)' : 'OBS Browser Source URL',
     copyBtn: language === 'zh' ? '複製網址' : language === 'ja' ? 'URLをコピー' : 'Copy URL',
     copiedBtn: language === 'zh' ? '已複製！' : language === 'ja' ? 'コピー完了！' : 'Copied!',
     previewBtn: language === 'zh' ? '開新分頁預覽' : language === 'ja' ? 'プレビュー表示' : 'Preview Overlay',
@@ -147,39 +133,6 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
       ? '💡 ヒント：ホームラン演出、三振(K)アニメーション、投手の投球数もすべてリアルタイムで同期されます。'
       : '💡 Tip: Home Run & Strikeout (K) animations, pitcher count, and runners sync dynamically with zero chroma key needed!',
   };
-
-  const layouts = [
-    {
-      id: 'follow' as OverlayLayout,
-      name: language === 'zh' ? '隨主控台連動 (推薦)' : language === 'ja' ? 'メイン画面に連動 (推奨)' : 'Follow Controller Mode (Recommended)',
-      desc: '',
-      badge: language === 'zh' ? '自動連動' : language === 'ja' ? '自動' : 'Auto',
-    },
-    {
-      id: 'broadcast' as OverlayLayout,
-      name: language === 'zh' ? '固定轉播比分條' : language === 'ja' ? '実況スコアバー固定' : 'Broadcast Scorebug (Fixed)',
-      desc: '',
-      badge: language === 'zh' ? '固定' : language === 'ja' ? '固定' : 'Fixed',
-    },
-    {
-      id: 'default' as OverlayLayout,
-      name: language === 'zh' ? '經典計分板' : language === 'ja' ? 'クラシックスコアボード' : 'Classic Scoreboard',
-      desc: language === 'zh' ? '雙隊完整打線與中央計分板，透明外框疊加' : language === 'ja' ? 'ラインナップと中央大型スコアボードの透明配置' : 'Full dual lineup and center scoreboard with transparent back',
-      badge: language === 'zh' ? '完整' : language === 'ja' ? '全体' : 'Full',
-    },
-    {
-      id: 'lineup' as OverlayLayout,
-      name: language === 'zh' ? '先發打線字卡' : language === 'ja' ? 'スターティングメンバー' : 'Starting Lineup Cards',
-      desc: language === 'zh' ? '兩隊先發球員打序大字卡，適合賽前轉播介紹' : language === 'ja' ? '試合開始前の両チームスタメン紹介' : 'Starting lineup cards, ideal for pre-game coverage',
-      badge: language === 'zh' ? '賽前' : language === 'ja' ? '試合前' : 'Pre-Game',
-    },
-    {
-      id: 'rhe' as OverlayLayout,
-      name: language === 'zh' ? '局間 RHE 比分' : language === 'ja' ? 'RHE イニング詳細' : 'Box Score (RHE)',
-      desc: language === 'zh' ? '各局詳細得分板與安打失誤統計，適合半局換場' : language === 'ja' ? '各イニングの得点・安打・失策ボックススコア' : 'Inning-by-inning box score with Runs, Hits, and Errors',
-      badge: language === 'zh' ? '局間' : language === 'ja' ? '回間' : 'Mid-Inning',
-    },
-  ];
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
@@ -318,66 +271,7 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
             )}
           </div>
 
-          {/* Step 1: Layout Selection for URL */}
-          <div className="space-y-2.5">
-            <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-              <Layers size={14} className="text-indigo-400" />
-              <span>{t.layoutLabel}</span>
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {layouts.map((item) => {
-                const isSelected = selectedLayout === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setSelectedLayout(item.id)}
-                    className={`text-left p-3 rounded-xl border transition-all cursor-pointer relative flex items-center justify-between gap-2 ${
-                      isSelected 
-                        ? 'bg-indigo-950/40 border-indigo-500 ring-2 ring-indigo-500/30 shadow-lg' 
-                        : 'bg-slate-800/60 border-slate-700/60 hover:bg-slate-800 hover:border-slate-600'
-                    }`}
-                  >
-                    <span className={`font-bold text-sm ${isSelected ? 'text-indigo-300' : 'text-white'}`}>
-                      {item.name}
-                    </span>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
-                      isSelected ? 'bg-indigo-500 text-white' : 'bg-slate-700 text-slate-300'
-                    }`}>
-                      {item.badge}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
-          {/* Step 2: Sync Mode (Always Active by Default, No Checkbox) */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-              <Radio size={14} className="text-indigo-400" />
-              <span>{t.syncLabel}</span>
-            </label>
-            <div className="bg-slate-800/60 border border-slate-700/60 p-3 rounded-xl flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
-                  <Radio size={16} className="animate-pulse" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-200 text-xs">
-                      {t.syncStatus}
-                    </span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      {language === 'zh' ? '默認開啟' : 'Always Active'}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    {t.syncDesc}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* Step 3: Generated URL */}
           <div className="space-y-2">

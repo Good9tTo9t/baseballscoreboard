@@ -219,16 +219,20 @@ export const App: React.FC = () => {
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const [previewScale, setPreviewScale] = useState(1);
 
+  const effectiveDisplayMode = localDisplayMode || state.displayMode;
+  const isBroadcast = effectiveDisplayMode === 'broadcast';
+
   useEffect(() => {
     if (!previewContainerRef.current) return;
     const updateScale = () => {
       if (!previewContainerRef.current) return;
       const { clientWidth, clientHeight } = previewContainerRef.current;
       if (clientWidth <= 0 || clientHeight <= 0) return;
-      const refW = 960;
-      const refH = 540;
+      const mode = localDisplayMode || state.displayMode;
+      const refW = mode === 'broadcast' ? 1920 : 960;
+      const refH = mode === 'broadcast' ? 1080 : 540;
       const s = Math.min(clientWidth / refW, clientHeight / refH);
-      setPreviewScale(Math.max(0.15, Math.min(1.5, s)));
+      setPreviewScale(Math.max(0.1, Math.min(1.5, s)));
     };
     updateScale();
     const ro = new ResizeObserver(updateScale);
@@ -240,13 +244,16 @@ export const App: React.FC = () => {
       window.removeEventListener('resize', updateScale);
       window.removeEventListener('orientationchange', updateScale);
     };
-  }, [useBetaControls, isPortrait, isDisplayMode, controlPanelWidth]);
+  }, [useBetaControls, isPortrait, isDisplayMode, controlPanelWidth, localDisplayMode, state.displayMode]);
 
   const fullscreenContainerRef = useRef<HTMLDivElement>(null);
   const [fullscreenScale, setFullscreenScale] = useState(() => {
     if (typeof window === 'undefined') return 1;
-    const s = Math.min((window.innerWidth - 12) / 960, (window.innerHeight - 12) / 540);
-    return Math.max(0.2, s);
+    const mode = localDisplayMode || state.displayMode;
+    const refW = mode === 'broadcast' ? 1920 : 960;
+    const refH = mode === 'broadcast' ? 1080 : 540;
+    const s = Math.min((window.innerWidth - 12) / refW, (window.innerHeight - 12) / refH);
+    return Math.max(0.1, s);
   });
 
   useEffect(() => {
@@ -262,11 +269,11 @@ export const App: React.FC = () => {
         }
       }
       if (w <= 0 || h <= 0) return;
-      const refW = 960;
-      const refH = 540;
-      // Scale 960x540 proportionally to fill fullscreen display with crisp layout
+      const mode = localDisplayMode || state.displayMode;
+      const refW = mode === 'broadcast' ? 1920 : 960;
+      const refH = mode === 'broadcast' ? 1080 : 540;
       const s = Math.min((w - 12) / refW, (h - 12) / refH);
-      setFullscreenScale(Math.max(0.2, s));
+      setFullscreenScale(Math.max(0.1, s));
     };
 
     updateFsScale();
@@ -293,7 +300,7 @@ export const App: React.FC = () => {
       document.removeEventListener('fullscreenchange', handleFsChange);
       document.removeEventListener('webkitfullscreenchange', handleFsChange);
     };
-  }, [isFullscreen, isPseudoFullscreen, isPortrait]);
+  }, [localDisplayMode, state.displayMode, isFullscreen, isPseudoFullscreen, isPortrait]);
 
   const channelRef = useRef<BroadcastChannel | null>(null);
   const isLocalAction = useRef(false);
@@ -741,12 +748,13 @@ export const App: React.FC = () => {
             ) : (
               <div 
                 style={{
-                  width: 960,
-                  height: 540,
+                  width: isBroadcast ? 1920 : 960,
+                  height: isBroadcast ? 1080 : 540,
                   transform: `scale(${fullscreenScale})`,
                   transformOrigin: 'center center',
                   flexShrink: 0
                 }}
+                className={isBroadcast ? "relative border border-slate-700/60 rounded-xl bg-slate-950/70 shadow-2xl overflow-hidden" : "relative"}
               >
                 <ScoreboardDisplay 
                   ref={displayRef} 
@@ -953,7 +961,7 @@ export const App: React.FC = () => {
         <div className={`w-full h-full flex ${(isPortrait && typeof window !== 'undefined' && window.innerWidth < 768) ? 'flex-col' : (useBetaControls ? 'flex-col md:flex-row' : 'flex-row')} gap-0 overflow-hidden`}>
           {/* Left/Top: Display */}
           <div 
-            className={`flex-none p-2 sm:p-4 bg-slate-950 flex flex-col items-center justify-center overflow-y-auto overscroll-contain overflow-x-hidden border-b md:border-b-0 md:border-r border-slate-700 relative ${
+            className={`flex-none p-2 sm:p-4 bg-slate-950 flex flex-col items-center justify-center ${isDisplayMode ? 'overflow-hidden' : 'overflow-y-auto overscroll-contain'} overflow-x-hidden no-scrollbar border-b md:border-b-0 md:border-r border-slate-700 relative ${
               (isPortrait && typeof window !== 'undefined' && window.innerWidth < 768)
                 ? 'w-full h-[35vh] sm:h-[42vh] shrink-0' 
                 : (useBetaControls ? 'w-full md:w-[var(--left-width)] h-[35vh] sm:h-[42vh] md:h-full shrink-0' : 'w-[var(--left-width)] h-full')
@@ -1014,13 +1022,20 @@ export const App: React.FC = () => {
                 ) : (
                   <div 
                     style={{
-                      width: 960,
-                      height: 540,
+                      width: isBroadcast ? 1920 : 960,
+                      height: isBroadcast ? 1080 : 540,
                       transform: `scale(${previewScale})`,
                       transformOrigin: 'center center',
                       flexShrink: 0
                     }}
+                    className={isBroadcast ? "relative border-2 border-slate-700/80 rounded-2xl bg-slate-950/80 shadow-2xl overflow-hidden" : "relative"}
                   >
+                    {isBroadcast && !isDisplayMode && (
+                      <div className="absolute top-3 left-3 z-30 pointer-events-none flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-900/85 border border-slate-700/70 text-slate-300 text-[11px] font-mono select-none backdrop-blur-md shadow-md">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>OBS 實況預覽 (1920 × 1080)</span>
+                      </div>
+                    )}
                     <ScoreboardDisplay 
                       ref={displayRef} 
                       state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
@@ -1078,7 +1093,7 @@ export const App: React.FC = () => {
        {/* Footer */}
        <footer className="bg-slate-900 text-slate-500 text-[10px] text-center p-1 border-t border-slate-800 flex flex-col sm:flex-row justify-center items-center gap-1 z-50 relative">
           <span>Made by Yorunann</span>
-          <span className="text-slate-600 ml-2">v3.4.2</span>
+          <span className="text-slate-600 ml-2">v3.4.7</span>
        </footer>
 
         <ShortcutSettingsModal
@@ -1235,12 +1250,13 @@ export const App: React.FC = () => {
               ) : (
                 <div 
                   style={{
-                    width: 960,
-                    height: 540,
+                    width: isBroadcast ? 1920 : 960,
+                    height: isBroadcast ? 1080 : 540,
                     transform: `scale(${fullscreenScale})`,
                     transformOrigin: 'center center',
                     flexShrink: 0
                   }}
+                  className={isBroadcast ? "relative border border-slate-700/60 rounded-xl bg-slate-950/70 shadow-2xl overflow-hidden" : "relative"}
                 >
                   <ScoreboardDisplay 
                     state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
@@ -1267,10 +1283,10 @@ export const App: React.FC = () => {
                 </h3>
                 <p className="text-slate-400 mb-6">
                   {language === 'en' 
-                    ? 'Are you sure you want to reset the game? This will clear all scores, counts, and innings, but keep the current team names and lineups. This action cannot be undone.' 
+                    ? 'Are you sure you want to reset the game? This will clear all scores, counts, pitch counts, and at-bat results, but will keep team rosters and saved archives intact.' 
                     : language === 'zh'
-                    ? '確定要重置比賽嗎？這將會清除所有比分、好壞球與局數，但會保留當前的隊伍名稱與打線。此操作無法復原。'
-                    : '試合をリセットしてもよろしいですか？ すべてのスコア、カウント、イニングはクリアされますが、現在のチーム名とラインナップは保持されます。この操作は元に戻せません。'}
+                    ? '確定要重置比賽嗎？這將會清除所有比分、好壞球數、局數、投手用球數與選手打席紀錄，但會保留隊伍名單與已存檔的比賽紀錄。此操作無法復原。'
+                    : '試合をリセットしてもよろしいですか？ スコア、カウント、投球数、打席結果はクリアされますが、チーム名簿や保存済みの記録は保持されます。'}
                 </p>
                 <div className="flex space-x-3">
                   <button

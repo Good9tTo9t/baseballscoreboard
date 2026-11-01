@@ -39,7 +39,7 @@ export const AT_BAT_OUTCOMES_CATEGORIES = [
     color: 'sky',
     badgeColor: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
     items: [
-      { id: '四球', label: '四壞保送 (BB)', full: '四壞球保送 (Base on Balls)' },
+      { id: '四壞', label: '四壞保送 (BB)', full: '四壞球保送 (Base on Balls)' },
       { id: '觸身', label: '觸身球 (HBP)', full: '觸身球保送 (Hit by Pitch)' },
       { id: '敬遠', label: '故意四壞 (IBB)', full: '故意四壞保送 (Intentional Walk)' },
       { id: '不死', label: '不死', full: '不死三振上壘 (Dropped 3rd Strike)' },
@@ -210,7 +210,7 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
     let rbi = p.rbi ?? 0;
 
     const isWalk = (ab: string) => 
-      ab.includes('四球') || ab.includes('觸身') || ab.includes('敬遠') || 
+      ab.includes('四壞') || ab.includes('四球') || ab.includes('觸身') || ab.includes('敬遠') || 
       ab.includes('保送') || ab.includes('BB') || ab.includes('HBP') || ab.includes('IBB');
 
     const isHit = (ab: string) => 
@@ -592,11 +592,13 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
     // Away Pitching
     text += `【${state.awayTeam.name} 投手成績】\n`;
     (state.awayTeam.pitcherHistory || []).forEach((hp) => {
-      const bf = hp.battersFaced !== undefined ? hp.battersFaced : state.homeTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0);
+      const bf = (typeof hp.battersFaced === 'number' && hp.battersFaced > 0) ? hp.battersFaced : state.homeTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0);
       text += `[退場] #${hp.number || '--'} ${hp.name || '---'} | 打者: ${bf} | 局數: ${hp.inningsPitched || '0.0'} | 球數: ${getPitcherCount(hp)} | 三振: ${hp.strikeouts || 0}\n`;
     });
     const ap = state.awayTeam.pitcher;
-    const apBf = ap.battersFaced !== undefined ? ap.battersFaced : (state.homeTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0) + (!state.isTop ? 1 : 0));
+    const apPrevBf = (state.awayTeam.pitcherHistory || []).reduce((acc, p) => acc + (p.battersFaced || 0), 0);
+    const apCalcBf = Math.max(0, state.homeTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0) - apPrevBf) + (!state.isTop ? 1 : 0);
+    const apBf = (typeof ap.battersFaced === 'number' && ap.battersFaced > 0) ? ap.battersFaced : apCalcBf;
     text += `[在場] #${ap.number || '--'} ${ap.name || '---'} | 打者: ${apBf} | 局數: ${ap.inningsPitched || '0.0'} | 球數: ${getPitcherCount(ap)} | 三振: ${ap.strikeouts || 0}\n\n`;
 
     // Home Batting
@@ -628,11 +630,13 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
     // Home Pitching
     text += `【${state.homeTeam.name} 投手成績】\n`;
     (state.homeTeam.pitcherHistory || []).forEach((hp) => {
-      const bf = hp.battersFaced !== undefined ? hp.battersFaced : state.awayTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0);
+      const bf = (typeof hp.battersFaced === 'number' && hp.battersFaced > 0) ? hp.battersFaced : state.awayTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0);
       text += `[退場] #${hp.number || '--'} ${hp.name || '---'} | 打者: ${bf} | 局數: ${hp.inningsPitched || '0.0'} | 球數: ${getPitcherCount(hp)} | 三振: ${hp.strikeouts || 0}\n`;
     });
     const hp = state.homeTeam.pitcher;
-    const hpBf = hp.battersFaced !== undefined ? hp.battersFaced : (state.awayTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0) + (state.isTop ? 1 : 0));
+    const hpPrevBf = (state.homeTeam.pitcherHistory || []).reduce((acc, p) => acc + (p.battersFaced || 0), 0);
+    const hpCalcBf = Math.max(0, state.awayTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0) - hpPrevBf) + (state.isTop ? 1 : 0);
+    const hpBf = (typeof hp.battersFaced === 'number' && hp.battersFaced > 0) ? hp.battersFaced : hpCalcBf;
     text += `[在場] #${hp.number || '--'} ${hp.name || '---'} | 打者: ${hpBf} | 局數: ${hp.inningsPitched || '0.0'} | 球數: ${getPitcherCount(hp)} | 三振: ${hp.strikeouts || 0}\n`;
     text += `========================================================\n`;
 
@@ -1185,9 +1189,13 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                       <span className="text-white font-bold">{currentDisplayTeam.pitcher.name || '---'} #{currentDisplayTeam.pitcher.number}</span>
                       <span className="text-slate-500">|</span>
                       <span className="text-yellow-400 font-bold">
-                        打者: {currentDisplayTeam.pitcher.battersFaced !== undefined 
-                          ? currentDisplayTeam.pitcher.battersFaced 
-                          : (otherTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0) + (isDisplayTeamPitching ? 1 : 0))}
+                        打者: {(() => {
+                          const prevBf = (currentDisplayTeam.pitcherHistory || []).reduce((acc, p) => acc + (p.battersFaced || 0), 0);
+                          const calculated = Math.max(0, otherTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0) - prevBf) + (isDisplayTeamPitching ? 1 : 0);
+                          return (typeof currentDisplayTeam.pitcher.battersFaced === 'number' && currentDisplayTeam.pitcher.battersFaced > 0)
+                            ? currentDisplayTeam.pitcher.battersFaced
+                            : calculated;
+                        })()}
                       </span>
                       <span className="text-slate-500">|</span>
                       <span className="text-sky-300 font-bold">用球: {getPitcherCount(currentDisplayTeam.pitcher)}</span>
@@ -1429,7 +1437,7 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                       <tbody>
                         {/* Substituted-off pitchers */}
                         {(currentDisplayTeam.pitcherHistory || []).map((hp, hIdx) => {
-                          const bf = hp.battersFaced !== undefined ? hp.battersFaced : otherTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0);
+                          const bf = (typeof hp.battersFaced === 'number' && hp.battersFaced > 0) ? hp.battersFaced : otherTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0);
                           return (
                             <tr key={hp.id || `h-${hIdx}`} className="border-b border-slate-800/40 hover:bg-slate-800/20 text-slate-300 bg-slate-900/30">
                               <td className="py-2.5 px-3 text-left font-sans text-slate-200 font-bold flex items-center gap-2">
@@ -1455,9 +1463,11 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                         {/* Current pitcher on the field */}
                         {(() => {
                           const curP = currentDisplayTeam.pitcher;
-                          const bf = curP.battersFaced !== undefined 
-                            ? curP.battersFaced 
-                            : (otherTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0) + (isDisplayTeamPitching ? 1 : 0));
+                          const prevBf = (currentDisplayTeam.pitcherHistory || []).reduce((acc, p) => acc + (p.battersFaced || 0), 0);
+                          const calculated = Math.max(0, otherTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0) - prevBf) + (isDisplayTeamPitching ? 1 : 0);
+                          const bf = (typeof curP.battersFaced === 'number' && curP.battersFaced > 0)
+                            ? curP.battersFaced
+                            : calculated;
                           return (
                             <tr className="border-b border-slate-800/60 font-bold hover:bg-slate-800/30">
                               <td className="py-2.5 px-3 text-left font-sans text-white font-bold flex items-center gap-2">

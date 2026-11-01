@@ -95,7 +95,7 @@ export const formatAtBatChinese = (rawAb: string, lang: 'en' | 'zh' | 'ja' = 'zh
     }
     if (ab === 'BB' || ab === '四球' || ab === '四壞' || ab === '保送' || ab === '敬遠' || ab === 'IBB') {
         return { 
-            label: lang === 'en' ? 'BB' : lang === 'ja' ? '四球' : (ab === '敬遠' || ab === 'IBB' ? '敬遠' : '四球'), 
+            label: lang === 'en' ? (ab === '敬遠' || ab === 'IBB' ? 'IBB' : 'BB') : lang === 'ja' ? (ab === '敬遠' || ab === 'IBB' ? '敬遠' : '四球') : (ab === '敬遠' || ab === 'IBB' ? '敬遠' : '四壞'), 
             style: 'text-sky-300 bg-sky-950/80 border-sky-500/70 font-bold',
             rbi
         };
@@ -1403,7 +1403,15 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                                     <span className="flex items-center gap-1">
                                         <span className="text-xs sm:text-sm text-slate-400 font-bold">{language === 'zh' ? '打者' : language === 'ja' ? '打者' : 'BF'}</span>
                                         <span className="text-sm sm:text-base text-yellow-400 font-bold">
-                                            {awayPitcher.battersFaced !== undefined ? awayPitcher.battersFaced : (state.homeTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0) + (!state.isTop ? 1 : 0))}
+                                            {(() => {
+                                                const prevBf = (state.awayTeam.pitcherHistory || []).reduce((acc, p) => acc + (p.battersFaced || 0), 0);
+                                                const totalOppAtBats = state.homeTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0);
+                                                const isPitchingNow = !state.isTop;
+                                                const calculated = Math.max(0, totalOppAtBats - prevBf) + (isPitchingNow ? 1 : 0);
+                                                return (typeof awayPitcher.battersFaced === 'number' && awayPitcher.battersFaced > 0)
+                                                    ? awayPitcher.battersFaced
+                                                    : calculated;
+                                            })()}
                                         </span>
                                     </span>
                                     <span className="text-slate-600">·</span>
@@ -1498,7 +1506,15 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                                     <span className="flex items-center gap-1">
                                         <span className="text-xs sm:text-sm text-slate-400 font-bold">{language === 'zh' ? '打者' : language === 'ja' ? '打者' : 'BF'}</span>
                                         <span className="text-sm sm:text-base text-yellow-400 font-bold">
-                                            {homePitcher.battersFaced !== undefined ? homePitcher.battersFaced : (state.awayTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0) + (state.isTop ? 1 : 0))}
+                                            {(() => {
+                                                const prevBf = (state.homeTeam.pitcherHistory || []).reduce((acc, p) => acc + (p.battersFaced || 0), 0);
+                                                const totalOppAtBats = state.awayTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0);
+                                                const isPitchingNow = state.isTop;
+                                                const calculated = Math.max(0, totalOppAtBats - prevBf) + (isPitchingNow ? 1 : 0);
+                                                return (typeof homePitcher.battersFaced === 'number' && homePitcher.battersFaced > 0)
+                                                    ? homePitcher.battersFaced
+                                                    : calculated;
+                                            })()}
                                         </span>
                                     </span>
                                     <span className="text-slate-600">·</span>
@@ -1633,10 +1649,6 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
     )
   };
   const renderObsRHEView = () => {
-    if (state.meta.broadcastVisible === false) {
-      return null;
-    }
-
     const maxInnings = Math.max(9, state.awayTeam.inningScores.length, state.homeTeam.inningScores.length);
     const inningsArray = Array.from({ length: maxInnings }, (_, i) => i + 1);
 
@@ -1701,87 +1713,105 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
       );
     };
 
+    const obsRHEVariants: Variants = {
+      initial: { y: 120, opacity: 0 },
+      animate: { 
+        y: 0, 
+        opacity: 1, 
+        transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] as const } 
+      },
+      exit: { 
+        y: 120, 
+        opacity: 0, 
+        transition: { duration: 0.40, ease: [0.32, 0, 0.67, 0] as const } 
+      }
+    };
+
     return (
       <div 
-        key={state.meta.broadcastAnimKey || 'obs-rhe'}
-        className="w-full h-full flex flex-col justify-end items-center pb-8 sm:pb-12 px-4 sm:px-8 bg-transparent overflow-hidden select-none pointer-events-auto"
+        className="w-full h-full flex flex-col justify-end items-center pb-8 sm:pb-12 px-4 sm:px-8 bg-transparent overflow-hidden select-none pointer-events-auto no-scrollbar"
       >
-        <motion.div 
-          initial={{ y: 80, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 80, opacity: 0 }}
-          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] as const }}
-          className="w-fit max-w-[96vw] flex flex-row items-stretch bg-slate-950/92 backdrop-blur-xl border-2 border-slate-700/80 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] overflow-hidden font-display text-white mx-auto"
-        >
-          {/* Left/Middle: 1-9 & RHE Table */}
-          <div className="flex-none min-w-0 flex flex-col justify-center py-2 px-3 sm:px-4">
-            <table className="text-center border-collapse">
-              <thead>
-                <tr className="border-b border-slate-700 text-slate-400 text-xs sm:text-sm">
-                  <th className="text-left font-semibold pb-1.5 pl-3 pr-3">TEAM</th>
-                  {inningsArray.map(i => (
-                    <th key={i} className="font-mono font-medium pb-1.5 px-1.5 sm:px-2 w-7 sm:w-8.5">{i}</th>
-                  ))}
-                  <th className="font-bold text-yellow-400 pb-1.5 pl-3 pr-2 w-8 sm:w-10">R</th>
-                  <th className="font-bold text-white pb-1.5 px-2 w-8 sm:w-10">H</th>
-                  <th className="font-bold text-white pb-1.5 px-2 w-8 sm:w-10">E</th>
-                </tr>
-              </thead>
-              <tbody className="text-base sm:text-lg font-bold">
-                {renderObsTeamRow(state.awayTeam, awayRuns, true)}
-                {renderObsTeamRow(state.homeTeam, homeRuns, false)}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Right: Due Up (3 batters stacked vertically beside RHE) */}
-          <div className="w-[200px] sm:w-[225px] flex flex-col justify-between py-2 px-3 bg-slate-900/60 border-l-2 border-slate-700/80 shrink-0">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-700/60 pb-1 mb-1">
-              <div className="flex items-center gap-1.5 text-xs font-black tracking-wider text-yellow-400">
-                <span>DUE UP</span>
-                <span className="text-yellow-400/60 text-[10px]">▶▶</span>
+        <AnimatePresence mode="wait">
+          {state.meta.broadcastVisible !== false && (
+            <motion.div 
+              key={`obs-rhe-${state.meta.broadcastAnimKey || 0}`}
+              variants={obsRHEVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="w-fit max-w-[96vw] flex flex-row items-stretch bg-slate-950/92 backdrop-blur-xl border-2 border-slate-700/80 rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.85)] overflow-hidden font-display text-white mx-auto"
+            >
+              {/* Left/Middle: 1-9 & RHE Table */}
+              <div className="flex-none min-w-0 flex flex-col justify-center py-2 px-3 sm:px-4">
+                <table className="text-center border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-700 text-slate-400 text-xs sm:text-sm">
+                      <th className="text-left font-semibold pb-1.5 pl-3 pr-3">TEAM</th>
+                      {inningsArray.map(i => (
+                        <th key={i} className="font-mono font-medium pb-1.5 px-1.5 sm:px-2 w-7 sm:w-8.5">{i}</th>
+                      ))}
+                      <th className="font-bold text-yellow-400 pb-1.5 pl-3 pr-2 w-8 sm:w-10">R</th>
+                      <th className="font-bold text-white pb-1.5 px-2 w-8 sm:w-10">H</th>
+                      <th className="font-bold text-white pb-1.5 px-2 w-8 sm:w-10">E</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-base sm:text-lg font-bold">
+                    {renderObsTeamRow(state.awayTeam, awayRuns, true)}
+                    {renderObsTeamRow(state.homeTeam, homeRuns, false)}
+                  </tbody>
+                </table>
               </div>
-              <span 
-                className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white uppercase tracking-wider truncate max-w-[85px]"
-                style={{ backgroundColor: dueUpTeam.color }}
-              >
-                {dueUpTeam.name}
-              </span>
-            </div>
 
-            {/* 3 Batters stacked vertically */}
-            <div className="flex-1 flex flex-col justify-around gap-0.5 min-h-0">
-              {[0, 1, 2].map((offset) => {
-                const bIdx = (dueUpTeam.currentBatterIndex + offset) % (dueUpTeam.lineup.length || 1);
-                const batter = dueUpTeam.lineup[bIdx];
-                if (!batter) return (
-                  <div key={offset} className="text-xs text-slate-500 font-mono py-0.5">---</div>
-                );
-                return (
-                  <div key={offset} className="flex items-center gap-1.5 text-xs py-0.5 min-w-0">
-                    <span className="font-mono text-slate-400 font-bold text-[11px] w-3.5 shrink-0">
-                      {bIdx + 1}.
-                    </span>
-                    <span className="font-bold text-white text-xs sm:text-sm tracking-wide truncate max-w-[95px] sm:max-w-[110px]">
-                      {batter.name}
-                    </span>
-                    <div className="flex items-center gap-1 shrink-0 font-mono ml-auto">
-                      {batter.number && (
-                        <span className="text-[11px] font-bold text-slate-300">
-                          #{batter.number}
-                        </span>
-                      )}
-                      <span className="text-[10px] text-slate-400 px-1 py-0.2 rounded bg-slate-800 border border-slate-700 font-semibold">
-                        {batter.position || 'DH'}
-                      </span>
-                    </div>
+              {/* Right: Due Up (3 batters stacked vertically beside RHE) */}
+              <div className="w-[200px] sm:w-[225px] flex flex-col justify-between py-2 px-3 bg-slate-900/60 border-l-2 border-slate-700/80 shrink-0">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-slate-700/60 pb-1 mb-1">
+                  <div className="flex items-center gap-1.5 text-xs font-black tracking-wider text-yellow-400">
+                    <span>DUE UP</span>
+                    <span className="text-yellow-400/60 text-[10px]">▶▶</span>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        </motion.div>
+                  <span 
+                    className="text-[10px] font-bold px-2 py-0.5 rounded text-white uppercase tracking-wider truncate max-w-[85px]"
+                    style={{ backgroundColor: dueUpTeam.color }}
+                  >
+                    {dueUpTeam.name}
+                  </span>
+                </div>
+
+                {/* 3 Batters stacked vertically */}
+                <div className="flex-1 flex flex-col justify-around gap-0.5 min-h-0">
+                  {[0, 1, 2].map((offset) => {
+                    const bIdx = (dueUpTeam.currentBatterIndex + offset) % (dueUpTeam.lineup.length || 1);
+                    const batter = dueUpTeam.lineup[bIdx];
+                    if (!batter) return (
+                      <div key={offset} className="text-xs text-slate-500 font-mono py-0.5">---</div>
+                    );
+                    return (
+                      <div key={offset} className="flex items-center gap-1.5 text-xs py-0.5 min-w-0">
+                        <span className="font-mono text-slate-400 font-bold text-[11px] w-3.5 shrink-0">
+                          {bIdx + 1}.
+                        </span>
+                        <span className="font-bold text-white text-xs sm:text-sm tracking-wide truncate max-w-[95px] sm:max-w-[110px]">
+                          {batter.name}
+                        </span>
+                        <div className="flex items-center gap-1 shrink-0 font-mono ml-auto">
+                          {batter.number && (
+                            <span className="text-[11px] font-bold text-slate-300">
+                              #{batter.number}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-slate-400 px-1 py-0.2 rounded bg-slate-800 border border-slate-700 font-semibold">
+                            {batter.position || 'DH'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   };
@@ -1827,9 +1857,9 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
       const hasNoBorder = Boolean(team.logoNoBorder && team.logoUrl);
       return (
         <tr key={team.name} className={isBottomBorder ? "border-b border-slate-800/50" : ""}>
-          <td className="text-left py-6 pl-4 flex items-center gap-4">
+          <td className="text-left py-3 sm:py-4 pl-4 flex items-center gap-3">
             <div 
-              className={`w-12 h-12 flex items-center justify-center shrink-0 overflow-hidden ${
+              className={`w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center shrink-0 overflow-hidden ${
                 hasNoBorder ? 'bg-transparent' : 'rounded-full bg-slate-800 shadow-md'
               }`} 
               style={hasNoBorder ? undefined : { backgroundColor: team.color }}
@@ -1841,41 +1871,41 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                   className={`w-full h-full ${hasNoBorder ? 'object-contain drop-shadow-md' : 'object-cover'}`} 
                 />
               ) : (
-                <span className="text-xl text-white font-bold">{team.name.substring(0, 1)}</span>
+                <span className="text-lg sm:text-xl text-white font-bold">{team.name.substring(0, 1)}</span>
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <AutoScalingText text={team.name} className="text-3xl font-bold" align="left" />
+              <AutoScalingText text={team.name} className="text-2xl sm:text-3xl font-bold" align="left" />
             </div>
           </td>
         {inningsArray.map(i => {
           const score = team.inningScores[i - 1];
           const isHighlightedInning = i === highlightInning && ((team.name === state.awayTeam.name && highlightIsAway) || (team.name === state.homeTeam.name && !highlightIsAway));
           return (
-            <td key={i} className={`py-6 ${isHighlightedInning ? 'text-yellow-400 animate-pulse drop-shadow-[0_0_8px_rgba(250,204,21,0.8)] font-black' : 'text-slate-300'}`}>
+            <td key={i} className={`py-3 sm:py-4 ${isHighlightedInning ? 'text-yellow-400 animate-pulse drop-shadow-[0_0_8px_rgba(250,204,21,0.8)] font-black' : 'text-slate-300'}`}>
               {score !== null && score !== undefined ? score : '-'}
             </td>
           );
         })}
-        <td className="py-6 pl-4 text-yellow-400">{runs}</td>
-        <td className="py-6 text-white">{team.hits}</td>
-        <td className="py-6 text-white">{team.errors}</td>
+        <td className="py-3 sm:py-4 pl-4 text-yellow-400">{runs}</td>
+        <td className="py-3 sm:py-4 text-white">{team.hits}</td>
+        <td className="py-3 sm:py-4 text-white">{team.errors}</td>
       </tr>
     );
   };
 
     return (
-      <div className="w-full h-full bg-slate-900 border-2 border-slate-700 rounded-xl overflow-hidden shadow-2xl flex flex-col font-display text-white p-4 lg:p-8">
+      <div className="w-full h-full bg-slate-900 border-2 border-slate-700 rounded-xl overflow-hidden shadow-2xl flex flex-col font-display text-white p-3 sm:p-5 lg:p-6 no-scrollbar">
         {/* Game Info Header */}
         <div 
-          className="grid items-center mb-4 px-6 py-4 bg-slate-800/50 rounded-xl border-2 border-slate-700 shadow-inner"
+          className="grid items-center mb-3 px-4 sm:px-6 py-2.5 sm:py-3 bg-slate-800/50 rounded-xl border-2 border-slate-700 shadow-inner shrink-0"
           style={{ gridTemplateColumns: `repeat(${state.meta.gameInfos?.length || 1}, minmax(0, 1fr))` }}
         >
           {state.meta.gameInfos?.map((info, idx) => {
             // Apply different styles based on position to mimic the original look
-            let textClass = "text-xl lg:text-2xl font-bold text-slate-400 truncate";
-            if (idx === 0) textClass = "text-xl lg:text-2xl text-yellow-500 uppercase tracking-widest font-black truncate";
-            else if (idx === Math.floor((state.meta.gameInfos.length - 1) / 2)) textClass = "text-3xl lg:text-4xl font-black text-white tracking-tighter truncate";
+            let textClass = "text-lg lg:text-xl font-bold text-slate-400 truncate";
+            if (idx === 0) textClass = "text-lg lg:text-xl text-yellow-500 uppercase tracking-widest font-black truncate";
+            else if (idx === Math.floor((state.meta.gameInfos.length - 1) / 2)) textClass = "text-2xl lg:text-3xl font-black text-white tracking-tighter truncate";
             
             return (
               <div key={idx} className="flex justify-center">
@@ -1885,23 +1915,21 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
           })}
         </div>
 
-
-
         {/* Scoreboard Table */}
-        <div className="w-full overflow-x-auto mb-8">
+        <div className="w-full overflow-x-auto overflow-y-hidden no-scrollbar mb-3 sm:mb-4 flex-1 min-h-0 flex flex-col justify-center">
           <table className="w-full text-center border-collapse">
             <thead>
-              <tr className="border-b-2 border-slate-700 text-slate-400 text-xl lg:text-2xl">
-                <th className="text-left font-normal pb-4 pl-4 w-1/4">TEAM</th>
+              <tr className="border-b-2 border-slate-700 text-slate-400 text-lg lg:text-xl">
+                <th className="text-left font-normal pb-2 sm:pb-3 pl-4 w-1/4">TEAM</th>
                 {inningsArray.map(i => (
-                  <th key={i} className="font-normal pb-4 w-12">{i}</th>
+                  <th key={i} className="font-normal pb-2 sm:pb-3 w-12">{i}</th>
                 ))}
-                <th className="font-bold text-white pb-4 pl-4 w-16">R</th>
-                <th className="font-bold text-white pb-4 w-16">H</th>
-                <th className="font-bold text-white pb-4 w-16">E</th>
+                <th className="font-bold text-white pb-2 sm:pb-3 pl-4 w-16">R</th>
+                <th className="font-bold text-white pb-2 sm:pb-3 w-16">H</th>
+                <th className="font-bold text-white pb-2 sm:pb-3 w-16">E</th>
               </tr>
             </thead>
-            <tbody className="text-3xl lg:text-4xl font-bold">
+            <tbody className="text-2xl sm:text-3xl lg:text-4xl font-bold">
               <>
                 {renderTeamRow(state.awayTeam, awayRuns, true)}
                 {renderTeamRow(state.homeTeam, homeRuns, false)}
@@ -1910,10 +1938,9 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
           </table>
         </div>
 
-
         {/* Next 3 Batters */}
-        <div className="mt-auto bg-slate-950/50 rounded-xl p-6 border-2 border-slate-800 flex items-center">
-          <div className="text-2xl lg:text-3xl font-bold text-yellow-500 mr-8 shrink-0 flex items-center gap-2">
+        <div className="mt-auto bg-slate-950/50 rounded-xl p-3 sm:p-4.5 border-2 border-slate-800 flex items-center shrink-0">
+          <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-yellow-500 mr-6 sm:mr-8 shrink-0 flex items-center gap-2">
             DUE UP <span className="text-yellow-400/50">{'>>>'}</span>
           </div>
           <div className="flex-1 flex justify-around items-center">
@@ -1923,8 +1950,8 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
               if (!batter) return null;
               return (
                 <div key={offset} className="flex flex-col items-center min-w-0 flex-1">
-                  <div className="text-xl lg:text-2xl text-slate-400 mb-1">#{batter.number}</div>
-                  <AutoScalingText text={batter.name} className="text-2xl lg:text-3xl font-bold text-white" align="center" />
+                  <div className="text-base sm:text-lg lg:text-xl text-slate-400 mb-0.5">#{batter.number}</div>
+                  <AutoScalingText text={batter.name} className="text-xl sm:text-2xl lg:text-3xl font-bold text-white" align="center" />
                 </div>
               );
             })}
@@ -1987,15 +2014,23 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
       const startMarginX = state.meta.broadcastMarginX ?? 20;
       const startMarginY = state.meta.broadcastMarginY ?? 20;
 
+      // Find effective container scale (supports scaled 1920x1080 preview)
+      const targetEl = e.currentTarget as HTMLElement;
+      const containerEl = targetEl.closest('.broadcast-container') || targetEl.parentElement;
+      const containerRect = containerEl?.getBoundingClientRect();
+      const containerScale = containerRect && containerRect.width > 0 && containerEl?.clientWidth
+        ? (containerRect.width / containerEl.clientWidth)
+        : 1;
+
       const onMove = (moveEvent: MouseEvent | TouchEvent) => {
         const moveClientX = 'touches' in moveEvent ? moveEvent.touches[0].clientX : moveEvent.clientX;
         const moveClientY = 'touches' in moveEvent ? moveEvent.touches[0].clientY : moveEvent.clientY;
         
-        const deltaX = moveClientX - startX;
-        const deltaY = moveClientY - startY;
+        const deltaX = (moveClientX - startX) / containerScale;
+        const deltaY = (moveClientY - startY) / containerScale;
         
-        dispatch({ type: 'UPDATE_META', field: 'broadcastMarginX', value: startMarginX + deltaX });
-        dispatch({ type: 'UPDATE_META', field: 'broadcastMarginY', value: startMarginY - deltaY }); // Subtract because bottom is anchored
+        dispatch({ type: 'UPDATE_META', field: 'broadcastMarginX', value: Math.round(startMarginX + deltaX) });
+        dispatch({ type: 'UPDATE_META', field: 'broadcastMarginY', value: Math.max(0, Math.round(startMarginY - deltaY)) }); // Subtract because bottom is anchored
       };
 
       const onUp = () => {
@@ -2135,7 +2170,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
 
     return (
       <div 
-        className="w-full h-full relative pointer-events-none overflow-hidden select-none"
+        className="w-full h-full relative pointer-events-none overflow-hidden select-none broadcast-container"
         onTouchStart={handleBroadcastTouchStart}
         onTouchMove={handleBroadcastTouchMove}
         onTouchEnd={handleBroadcastTouchEnd}

@@ -163,14 +163,14 @@ export type ActionType =
   | { type: 'RESET_TEAM'; team: 'home' | 'away' }
   | { type: 'RESET_TEAM_SETTINGS' }
   | { type: 'SWAP_TEAMS' }
-  | { type: 'WALK'; walkType?: '四球' | '觸身' | '不死三振' | '敬遠' | 'K+WP' | 'K+PB' | '失誤' }
+  | { type: 'WALK'; walkType?: '四球' | '四壞' | '觸身' | '不死三振' | '敬遠' | 'K+WP' | 'K+PB' | '失誤' }
   | { type: 'SAC_FLY' }
   | { type: 'BATTER_OUT'; outType?: string }
   | { type: 'SINGLE' }
   | { type: 'DOUBLE' }
   | { type: 'TRIPLE' }
   | { type: 'HOME_RUN' }
-  | { type: 'WILD_PITCH'; subType?: 'WP' | 'PB' }
+  | { type: 'WILD_PITCH'; subType?: 'WP' | 'PB' | 'BK' }
   | { type: 'SET_ANIMATION'; animation: AnimationData | null }
   | { type: 'NEXT_INNING' }
   | { type: 'PREVIOUS_HALF_INNING' }

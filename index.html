@@ -66,9 +66,17 @@
       }
     </script>
     <style>
-      body {
+      html, body, #root {
         background-color: #0f172a;
         color: white;
+        overflow: hidden !important;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+      }
+      *::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
       }
       html.obs-mode,
       body.obs-mode,
@@ -78,11 +86,14 @@
         overflow: hidden !important;
       }
       .no-scrollbar::-webkit-scrollbar {
-          display: none;
+          display: none !important;
+          width: 0 !important;
+          height: 0 !important;
       }
       .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
+          -ms-overflow-style: none !important;
+          scrollbar-width: none !important;
+          overflow: hidden;
       }
       /* Optional custom keyframe if needed, though Tailwind classes usually suffice */
       @keyframes score-flash {

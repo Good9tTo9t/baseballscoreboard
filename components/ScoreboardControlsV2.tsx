@@ -105,7 +105,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
     : (state.homeTeam.baseColor || state.homeTeam.color || '#facc15');
 
   // Confirm Walk / On-Base from Modal
-  const handleConfirmWalk = (walkType: '四球' | '觸身' | '不死三振' | 'K+WP' | 'K+PB' | '失誤') => {
+  const handleConfirmWalk = (walkType: '四球' | '四壞' | '觸身' | '不死三振' | '敬遠' | 'K+WP' | 'K+PB' | '失誤') => {
     if (walkType === '不死三振' || walkType === 'K+WP' || walkType === 'K+PB') {
       dispatch({ type: 'WALK', walkType });
       dispatch({ type: 'TRIGGER_K' });
@@ -1494,7 +1494,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
 
             <div className="grid grid-cols-1 gap-2.5">
               <button
-                onClick={() => handleConfirmWalk('四球')}
+                onClick={() => handleConfirmWalk('四壞')}
                 className="flex items-center justify-between p-3.5 bg-slate-800/80 hover:bg-sky-950/60 border border-slate-700 hover:border-sky-500/80 rounded-xl transition-all group text-left active:scale-98"
               >
                 <div className="flex items-center gap-3">
@@ -1502,10 +1502,25 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                     BB
                   </span>
                   <div className="text-sm font-bold text-white group-hover:text-sky-300 transition-colors">
-                    {language === 'zh' ? '四球 (四壞保送)' : language === 'ja' ? '四球 (フォアボール)' : 'Base on Balls (BB)'}
+                    {language === 'zh' ? '四壞' : language === 'ja' ? '四球' : 'Base on Balls (BB)'}
                   </div>
                 </div>
                 <ChevronRight size={18} className="text-slate-500 group-hover:text-sky-400 group-hover:translate-x-0.5 transition-all" />
+              </button>
+
+              <button
+                onClick={() => handleConfirmWalk('敬遠')}
+                className="flex items-center justify-between p-3.5 bg-slate-800/80 hover:bg-blue-950/60 border border-slate-700 hover:border-blue-500/80 rounded-xl transition-all group text-left active:scale-98"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-black px-2.5 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40 font-mono">
+                    IBB
+                  </span>
+                  <div className="text-sm font-bold text-white group-hover:text-blue-300 transition-colors">
+                    {language === 'zh' ? '敬遠' : language === 'ja' ? '敬遠' : 'Intentional Walk (IBB)'}
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-slate-500 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all" />
               </button>
 
               <button
@@ -1517,7 +1532,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                     HBP
                   </span>
                   <div className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">
-                    {language === 'zh' ? '觸身 (觸身球保送)' : language === 'ja' ? '死球 (デッドボール)' : 'Hit by Pitch (HBP)'}
+                    {language === 'zh' ? '觸身' : language === 'ja' ? '死球' : 'Hit by Pitch (HBP)'}
                   </div>
                 </div>
                 <ChevronRight size={18} className="text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-all" />
@@ -1589,7 +1604,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
               <div>
                 <h3 className="text-lg font-black text-white flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                  <span>{language === 'zh' ? '選擇暴投 / 捕逸' : language === 'ja' ? '暴投 / 捕逸の選択' : 'Select Wild Pitch / Passed Ball'}</span>
+                  <span>{language === 'zh' ? '選擇暴投 / 捕逸 / 投手犯規' : language === 'ja' ? '暴投 / 捕逸 / ボークの選択' : 'Select Wild Pitch / Passed Ball / Balk'}</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
                   {language === 'zh' 
@@ -1609,10 +1624,10 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
 
             <div className="p-2.5 bg-amber-950/30 border border-amber-500/30 rounded-xl text-[11px] text-amber-200 leading-relaxed">
               {language === 'zh' 
-                ? '兩者皆會使壘上跑者向前推進各 1 壘（三壘跑者回本壘得分），並自動將守備方失誤 (E) +1。' 
+                ? '使壘上跑者向前推進各 1 壘（三壘跑者回本壘得分）。' 
                 : language === 'ja'
-                ? '走者を各1塁進塁させ、守備側の失策 (E) を +1 します。'
-                : 'Both advance runners by 1 base and automatically add +1 to fielding team Errors (E).'}
+                ? '走者を各1塁進塁させます（三塁走者は生還）。'
+                : 'Advance all runners by 1 base (runner on 3rd scores).'}
             </div>
 
             <div className="grid grid-cols-1 gap-3">
@@ -1633,9 +1648,6 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                       <span className="text-xs px-2 py-0.5 rounded bg-orange-600/30 text-orange-300 border border-orange-500/40">
                         {language === 'zh' ? `記投手：${activePitcher.name}` : `P: ${activePitcher.name}`}
                       </span>
-                    </div>
-                    <div className="text-xs text-slate-400 mt-1">
-                      {language === 'zh' ? '投球過偏或挖地瓜導致捕手無法正常接捕，失誤記在投手身上。' : 'Pitch is errant, charged to pitcher.'}
                     </div>
                   </div>
                 </div>
@@ -1660,12 +1672,32 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                         {language === 'zh' ? `記捕手：${activeCatcher.name}` : `C: ${activeCatcher.name}`}
                       </span>
                     </div>
-                    <div className="text-xs text-slate-400 mt-1">
-                      {language === 'zh' ? '投手投出可正常接捕之球，但捕手發生漏接，失誤記在捕手身上。' : 'Catchable pitch missed by catcher, charged to catcher.'}
-                    </div>
                   </div>
                 </div>
                 <ChevronRight size={20} className="text-slate-500 group-hover:text-purple-400 group-hover:translate-x-0.5 transition-all shrink-0" />
+              </button>
+
+              <button
+                onClick={() => {
+                  dispatch({ type: 'WILD_PITCH', subType: 'BK' });
+                  setIsWpPbModalOpen(false);
+                }}
+                className="flex items-center justify-between p-3.5 bg-slate-800/80 hover:bg-rose-950/70 border-2 border-slate-700 hover:border-rose-500 rounded-xl transition-all group text-left active:scale-98"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-black px-2.5 py-1.5 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/50 font-mono">
+                    BK
+                  </span>
+                  <div>
+                    <div className="text-base font-black text-white group-hover:text-rose-300 transition-colors flex items-center gap-2">
+                      <span>{language === 'zh' ? '投手犯規 (Balk)' : language === 'ja' ? 'ボーク (Balk)' : 'Balk (BK)'}</span>
+                      <span className="text-xs px-2 py-0.5 rounded bg-rose-600/30 text-rose-300 border border-rose-500/40">
+                        {language === 'zh' ? `記投手：${activePitcher.name}` : `P: ${activePitcher.name}`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight size={20} className="text-slate-500 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-all shrink-0" />
               </button>
             </div>
 
