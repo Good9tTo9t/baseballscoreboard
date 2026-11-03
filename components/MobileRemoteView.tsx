@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { GameState, ActionType } from '../types';
 import { getPitcherCount } from '../reducer';
-import { ConnectionStatus } from '../hooks/usePeerSync';
+import { ConnectionStatus, RemoteRole } from '../hooks/usePeerSync';
 import {
   Smartphone,
   Wifi,
@@ -9,6 +9,11 @@ import {
   Tv,
   AlertCircle,
   Radio,
+  Lock,
+  Edit3,
+  Eye,
+  UserX,
+  RotateCcw,
 } from 'lucide-react';
 import { ScoreboardControls } from './ScoreboardControls';
 import { ScoreboardControlsV2 } from './ScoreboardControlsV2';
@@ -28,6 +33,9 @@ interface MobileRemoteViewProps {
   onOpenRecordModal: () => void;
   onToggleProjectMode: () => void;
   onOpenObsModal?: () => void;
+  myRole?: RemoteRole;
+  isKicked?: boolean;
+  onRetryConnect?: () => void;
 }
 
 export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
@@ -45,9 +53,14 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
   onOpenRecordModal,
   onToggleProjectMode,
   onOpenObsModal,
+  myRole = 'editor',
+  isKicked = false,
+  onRetryConnect,
 }) => {
   const [manualCodeInput, setManualCodeInput] = useState(roomCode);
   const [showCodeInput, setShowCodeInput] = useState(false);
+
+  const isViewer = myRole === 'viewer';
 
   // Trigger tactile haptic vibration where supported
   const triggerHaptic = () => {
@@ -61,6 +74,9 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
   };
 
   const handleAction = (action: ActionType) => {
+    if (isViewer) {
+      return;
+    }
     triggerHaptic();
     dispatch(action);
   };
@@ -80,11 +96,49 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
     : (state.homeTeam.baseColor || state.homeTeam.color || '#facc15');
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col font-sans select-none touch-manipulation pb-10">
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col font-sans select-none touch-manipulation pb-10 relative">
+      {/* Kicked Modal Overlay */}
+      {isKicked && (
+        <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-rose-500/70 rounded-2xl p-6 text-center max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 rounded-full bg-rose-950/70 border border-rose-500/60 flex items-center justify-center text-rose-400 mx-auto mb-4 shadow-lg shadow-rose-950/50">
+              <UserX size={32} />
+            </div>
+            <h3 className="text-lg font-bold text-white mb-2">
+              {language === 'zh' ? '遠端遙控已解除' : 'Remote Session Terminated'}
+            </h3>
+            <p className="text-xs text-slate-300 mb-6 leading-relaxed">
+              {language === 'zh'
+                ? '記分板主機已解除此裝置的遠端遙控權限並中斷連線。如需重新操作，請向主機申請。'
+                : 'The host has disconnected your remote controller session.'}
+            </p>
+            <div className="space-y-2.5">
+              {onRetryConnect && (
+                <button
+                  type="button"
+                  onClick={onRetryConnect}
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition-colors shadow-lg cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <RotateCcw size={14} />
+                  <span>{language === 'zh' ? '重新嘗試連線' : 'Retry Connect'}</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onExitRemoteMode}
+                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                {language === 'zh' ? '退出遠端遙控' : 'Exit Remote'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top Connection Bar */}
       <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-3 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-blue-600/30 border border-blue-500/50 flex items-center justify-center text-blue-400">
+          <div className="w-8 h-8 rounded-lg bg-blue-600/30 border border-blue-500/50 flex items-center justify-center text-blue-400 shrink-0">
             <Smartphone size={18} />
           </div>
           <div>
@@ -95,6 +149,18 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
               <span className="font-mono text-yellow-400 text-[11px] font-black">
                 #{roomCode || '---'}
               </span>
+              {/* Role badge */}
+              {isViewer ? (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-0.5">
+                  <Eye size={10} />
+                  <span>{language === 'zh' ? '閱覽者' : 'Viewer'}</span>
+                </span>
+              ) : (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40 flex items-center gap-0.5">
+                  <Edit3 size={10} />
+                  <span>{language === 'zh' ? '編輯者' : 'Editor'}</span>
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
               {connectionStatus === 'connected' ? (
@@ -123,7 +189,7 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
             <button
               onClick={onOpenObsModal}
               className="px-2.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold rounded-lg shadow-md flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer border border-purple-400/30"
-              title={language === 'zh' ? '開啟 OBS 實況圖層與控制台 (可切換隱藏/開局動畫)' : 'Open OBS Overlay & Console'}
+              title={language === 'zh' ? '開啟 OBS 實況圖層與控制台' : 'Open OBS Overlay & Console'}
             >
               <Radio size={14} />
               <span>OBS</span>
@@ -142,20 +208,34 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
 
           <button
             onClick={() => setShowCodeInput(!showCodeInput)}
-            className="px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold rounded-lg border border-slate-700 transition-colors"
+            className="px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold rounded-lg border border-slate-700 transition-colors cursor-pointer"
           >
             {language === 'zh' ? '換房間' : 'Room'}
           </button>
 
           <button
             onClick={onExitRemoteMode}
-            className="px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-[11px] rounded-lg border border-slate-700 transition-colors"
+            className="px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-[11px] rounded-lg border border-slate-700 transition-colors cursor-pointer"
             title={language === 'zh' ? '退出遠端連線模式' : 'Exit'}
           >
             {language === 'zh' ? '退出' : 'Exit'}
           </button>
         </div>
       </header>
+
+      {/* Viewer read-only warning ribbon */}
+      {isViewer && (
+        <div className="bg-amber-950/80 border-b border-amber-500/50 px-3 py-1.5 text-xs text-amber-200 flex items-center justify-between animate-in slide-in-from-top-1">
+          <div className="flex items-center gap-2">
+            <Lock size={14} className="text-amber-400 shrink-0" />
+            <span className="text-[11px] font-medium leading-tight">
+              {language === 'zh'
+                ? '目前為【閱覽者】權限（僅供查看賽況與打席結果，無修改權限）。若需操作請聯繫主機開啟【編輯者】。'
+                : 'View-Only Mode: You have read-only access. Contact host for editor rights.'}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Manual Room Code Change Drawer */}
       {showCodeInput && (
@@ -194,7 +274,7 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
           </div>
           <button
             onClick={onReconnect}
-            className="px-2 py-1 bg-red-800 hover:bg-red-700 text-white rounded font-bold text-[10px]"
+            className="px-2 py-1 bg-red-800 hover:bg-red-700 text-white rounded font-bold text-[10px] cursor-pointer"
           >
             {language === 'zh' ? '重新連線' : 'Reconnect'}
           </button>
@@ -273,7 +353,7 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
               </div>
             </div>
 
-            {/* Right: Interactive Bases Diamond (壘包跑者即時控制) */}
+            {/* Right: Interactive Bases Diamond */}
             <div className="flex flex-col items-center">
               <span className="text-[9px] font-bold text-slate-400 tracking-wider mb-0.5">
                 {language === 'zh' ? '壘包' : 'BASES'}
@@ -291,14 +371,17 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
                 {/* 2nd Base */}
                 <button
                   type="button"
+                  disabled={isViewer}
                   onClick={() => handleAction({ type: 'TOGGLE_BASE', baseIndex: 1 })}
-                  className="absolute top-0.5 left-1/2 -translate-x-1/2 w-5 h-5 rotate-45 border-2 rounded-xs transition-all shadow-md active:scale-90 flex items-center justify-center cursor-pointer z-10"
+                  className={`absolute top-0.5 left-1/2 -translate-x-1/2 w-5 h-5 rotate-45 border-2 rounded-xs transition-all shadow-md active:scale-90 flex items-center justify-center z-10 ${
+                    isViewer ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'
+                  }`}
                   style={{
                     backgroundColor: state.bases[1] ? activeBaseColor : '#1e293b',
                     borderColor: state.bases[1] ? '#ffffff' : '#64748b',
                     boxShadow: state.bases[1] ? `0 0 10px ${activeBaseColor}` : undefined
                   }}
-                  title="二壘 (點擊切換)"
+                  title={isViewer ? '二壘（唯讀）' : '二壘 (點擊切換)'}
                 >
                   <span className="-rotate-45 text-[8px] font-black text-slate-900 select-none">
                     {state.bases[1] ? '●' : '2'}
@@ -308,14 +391,17 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
                 {/* 3rd Base */}
                 <button
                   type="button"
+                  disabled={isViewer}
                   onClick={() => handleAction({ type: 'TOGGLE_BASE', baseIndex: 2 })}
-                  className="absolute left-1 top-5.5 w-5 h-5 rotate-45 border-2 rounded-xs transition-all shadow-md active:scale-90 flex items-center justify-center cursor-pointer z-10"
+                  className={`absolute left-1 top-5.5 w-5 h-5 rotate-45 border-2 rounded-xs transition-all shadow-md active:scale-90 flex items-center justify-center z-10 ${
+                    isViewer ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'
+                  }`}
                   style={{
                     backgroundColor: state.bases[2] ? activeBaseColor : '#1e293b',
                     borderColor: state.bases[2] ? '#ffffff' : '#64748b',
                     boxShadow: state.bases[2] ? `0 0 10px ${activeBaseColor}` : undefined
                   }}
-                  title="三壘 (點擊切換)"
+                  title={isViewer ? '三壘（唯讀）' : '三壘 (點擊切換)'}
                 >
                   <span className="-rotate-45 text-[8px] font-black text-slate-900 select-none">
                     {state.bases[2] ? '●' : '3'}
@@ -325,14 +411,17 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
                 {/* 1st Base */}
                 <button
                   type="button"
+                  disabled={isViewer}
                   onClick={() => handleAction({ type: 'TOGGLE_BASE', baseIndex: 0 })}
-                  className="absolute right-1 top-5.5 w-5 h-5 rotate-45 border-2 rounded-xs transition-all shadow-md active:scale-90 flex items-center justify-center cursor-pointer z-10"
+                  className={`absolute right-1 top-5.5 w-5 h-5 rotate-45 border-2 rounded-xs transition-all shadow-md active:scale-90 flex items-center justify-center z-10 ${
+                    isViewer ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'
+                  }`}
                   style={{
                     backgroundColor: state.bases[0] ? activeBaseColor : '#1e293b',
                     borderColor: state.bases[0] ? '#ffffff' : '#64748b',
                     boxShadow: state.bases[0] ? `0 0 10px ${activeBaseColor}` : undefined
                   }}
-                  title="一壘 (點擊切換)"
+                  title={isViewer ? '一壘（唯讀）' : '一壘 (點擊切換)'}
                 >
                   <span className="-rotate-45 text-[8px] font-black text-slate-900 select-none">
                     {state.bases[0] ? '●' : '1'}
@@ -382,7 +471,17 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
 
       {/* Main Content Area: 直接完整後台模式 (Full Control Console) */}
       <div className="flex-1 p-2 sm:p-3 overflow-y-auto">
-        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-1 sm:p-2 shadow-2xl">
+        <div className={`bg-slate-900 rounded-2xl border border-slate-800 p-1 sm:p-2 shadow-2xl relative ${
+          isViewer ? 'opacity-70 pointer-events-none select-none' : ''
+        }`}>
+          {isViewer && (
+            <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[1px] z-30 rounded-2xl flex flex-col items-center justify-center p-4">
+              <div className="p-3 bg-slate-900/90 border border-amber-500/50 rounded-xl shadow-2xl flex items-center gap-2 text-amber-300 text-xs font-bold">
+                <Lock size={16} className="text-amber-400" />
+                <span>控制功能唯讀鎖定中（當前權限：閱覽者）</span>
+              </div>
+            </div>
+          )}
           {useBetaControls ? (
             <ScoreboardControlsV2
               state={state}
