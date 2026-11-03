@@ -1207,13 +1207,30 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         battersFaced: undefined
       };
 
+      let newLineup = [...teamObj.lineup];
+      if (typeof action.lineupIndex === 'number' && action.lineupIndex >= 0 && newLineup[action.lineupIndex]) {
+        const oldLineupPlayer = newLineup[action.lineupIndex];
+        const prevPlayers = oldLineupPlayer.previousPlayers && oldLineupPlayer.previousPlayers.length > 0
+          ? [...oldLineupPlayer.previousPlayers, { ...oldLineupPlayer, previousPlayers: undefined, isStarter: false }]
+          : [{ ...oldLineupPlayer, previousPlayers: undefined, isStarter: true }];
+
+        newLineup[action.lineupIndex] = {
+          ...incomingPitcher,
+          position: 'P',
+          isStarter: false,
+          previousPlayers: prevPlayers,
+          atBats: []
+        };
+      }
+
       return {
         ...state,
         [teamKey]: {
           ...teamObj,
           pitcher: newPitcher,
           pitcherHistory: newHistory,
-          bench: newBench
+          bench: newBench,
+          lineup: newLineup
         }
       };
     }

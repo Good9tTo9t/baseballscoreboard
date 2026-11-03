@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GameState, ActionType, Team, Player } from '../types';
 import { getPitcherCount } from '../reducer';
+import { PitcherLineupSubModal, PitcherCandidate } from './PitcherLineupSubModal';
 import { 
   Plus, 
   Minus, 
@@ -51,6 +52,22 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
   const [isWalkModalOpen, setIsWalkModalOpen] = useState(false);
   const [isOutModalOpen, setIsOutModalOpen] = useState(false);
   const [isWpPbModalOpen, setIsWpPbModalOpen] = useState(false);
+
+  const [pitcherSubModalState, setPitcherSubModalState] = useState<{
+    isOpen: boolean;
+    benchIndex: number;
+    teamKey: 'home' | 'away';
+    teamName: string;
+    incomingPitcher: Player | null;
+    candidates: PitcherCandidate[];
+  }>({
+    isOpen: false,
+    benchIndex: -1,
+    teamKey: 'home',
+    teamName: '',
+    incomingPitcher: null,
+    candidates: []
+  });
 
   // Customizable Timer Presets (stored in localStorage)
   const [preset1, setPreset1] = useState<number>(() => {
@@ -210,11 +227,48 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
   const handleSubstitutePitcher = (benchIndex: number) => {
     const benchPlayer = fieldingTeam.bench[benchIndex];
     if (!benchPlayer) return;
+
+    // Check if there are pitchers in the batting lineup of this team
+    const isPitcher = (p: Player) => {
+      const pos = (p.position || '').trim().toUpperCase();
+      const isPosP = pos === 'P' || pos === '1' || pos === '投手' || pos === '投';
+      const matchesCurrentPitcher = Boolean(
+        (fieldingTeam.pitcher?.id && p.id && p.id === fieldingTeam.pitcher.id) ||
+        (fieldingTeam.pitcher?.name && p.name && p.name.trim() === fieldingTeam.pitcher.name.trim() && p.name.trim() !== '---')
+      );
+      return isPosP || matchesCurrentPitcher;
+    };
+
+    const candidates: PitcherCandidate[] = fieldingTeam.lineup
+      .map((player, index) => ({ player, index }))
+      .filter(({ player }) => isPitcher(player));
+
+    if (candidates.length > 0) {
+      setPitcherSubModalState({
+        isOpen: true,
+        benchIndex,
+        teamKey: fieldingTeamKey,
+        teamName: fieldingTeam.name,
+        incomingPitcher: benchPlayer,
+        candidates
+      });
+    } else {
+      dispatch({
+        type: 'SUBSTITUTE_PITCHER',
+        team: fieldingTeamKey,
+        benchIndex
+      });
+    }
+  };
+
+  const handleConfirmPitcherSub = (lineupIndex: number | undefined) => {
     dispatch({
       type: 'SUBSTITUTE_PITCHER',
-      team: fieldingTeamKey,
-      benchIndex
+      team: pitcherSubModalState.teamKey,
+      benchIndex: pitcherSubModalState.benchIndex,
+      lineupIndex
     });
+    setPitcherSubModalState(prev => ({ ...prev, isOpen: false }));
   };
 
   // Substitute Batter from Bench (Pinch Hit / Pinch Run)
@@ -1866,6 +1920,17 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
           </div>
         </div>
       )}
+
+      {/* PITCHER LINEUP SUBSTITUTION MODAL */}
+      <PitcherLineupSubModal
+        isOpen={pitcherSubModalState.isOpen}
+        onClose={() => setPitcherSubModalState(prev => ({ ...prev, isOpen: false }))}
+        teamName={pitcherSubModalState.teamName}
+        incomingPitcher={pitcherSubModalState.incomingPitcher}
+        candidates={pitcherSubModalState.candidates}
+        onConfirm={handleConfirmPitcherSub}
+        language={language}
+      />
     </div>
   );
 };

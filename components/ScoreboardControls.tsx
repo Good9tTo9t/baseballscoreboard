@@ -1,4 +1,5 @@
 import { LineupImportModal } from './LineupImportModal';
+import { PitcherLineupSubModal, PitcherCandidate } from './PitcherLineupSubModal';
 
 
 import React, { useRef, useEffect, useState } from 'react';
@@ -827,6 +828,22 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
   const [isOutModalOpen, setIsOutModalOpen] = useState(false);
   const [isWpPbModalOpen, setIsWpPbModalOpen] = useState(false);
 
+  const [pitcherSubModalState, setPitcherSubModalState] = useState<{
+    isOpen: boolean;
+    benchIndex: number;
+    teamKey: 'home' | 'away';
+    teamName: string;
+    incomingPitcher: Player | null;
+    candidates: PitcherCandidate[];
+  }>({
+    isOpen: false,
+    benchIndex: -1,
+    teamKey: 'home',
+    teamName: '',
+    incomingPitcher: null,
+    candidates: []
+  });
+
   const [hrState, setHrState] = React.useState<'idle' | 'playing' | 'locked' | 'exiting'>('idle');
   const hrTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const hrLockTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -999,11 +1016,48 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
   const handleSubstitutePitcher = (benchIndex: number) => {
     const benchPlayer = activePitcherTeamObj.bench[benchIndex];
     if (!benchPlayer) return;
+
+    // Check if there are pitchers in the batting lineup of this team
+    const isPitcher = (p: Player) => {
+      const pos = (p.position || '').trim().toUpperCase();
+      const isPosP = pos === 'P' || pos === '1' || pos === '投手' || pos === '投';
+      const matchesCurrentPitcher = Boolean(
+        (activePitcherTeamObj.pitcher?.id && p.id && p.id === activePitcherTeamObj.pitcher.id) ||
+        (activePitcherTeamObj.pitcher?.name && p.name && p.name.trim() === activePitcherTeamObj.pitcher.name.trim() && p.name.trim() !== '---')
+      );
+      return isPosP || matchesCurrentPitcher;
+    };
+
+    const candidates: PitcherCandidate[] = activePitcherTeamObj.lineup
+      .map((player, index) => ({ player, index }))
+      .filter(({ player }) => isPitcher(player));
+
+    if (candidates.length > 0) {
+      setPitcherSubModalState({
+        isOpen: true,
+        benchIndex,
+        teamKey: activePitcherTeam,
+        teamName: activePitcherTeamObj.name,
+        incomingPitcher: benchPlayer,
+        candidates
+      });
+    } else {
+      dispatch({
+        type: 'SUBSTITUTE_PITCHER',
+        team: activePitcherTeam,
+        benchIndex
+      });
+    }
+  };
+
+  const handleConfirmPitcherSub = (lineupIndex: number | undefined) => {
     dispatch({
       type: 'SUBSTITUTE_PITCHER',
-      team: activePitcherTeam,
-      benchIndex
+      team: pitcherSubModalState.teamKey,
+      benchIndex: pitcherSubModalState.benchIndex,
+      lineupIndex
     });
+    setPitcherSubModalState(prev => ({ ...prev, isOpen: false }));
   };
 
   const handleSubstituteBatter = (benchIndex: number) => {
@@ -2364,6 +2418,17 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
           </div>
         </div>
       )}
+
+      {/* PITCHER LINEUP SUBSTITUTION MODAL */}
+      <PitcherLineupSubModal
+        isOpen={pitcherSubModalState.isOpen}
+        onClose={() => setPitcherSubModalState(prev => ({ ...prev, isOpen: false }))}
+        teamName={pitcherSubModalState.teamName}
+        incomingPitcher={pitcherSubModalState.incomingPitcher}
+        candidates={pitcherSubModalState.candidates}
+        onConfirm={handleConfirmPitcherSub}
+        language={language}
+      />
     </div>
   );
 };
