@@ -2337,21 +2337,25 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
             />
           )}
           
-          {/* Corner Scaler */}
+          {/* Corner Scaler: Positioned at Top-Right to align directly with bottom-left anchor origin */}
           {state.isAdjustmentMode && (
             <div 
-              className="absolute right-0 bottom-0 w-8 h-8 cursor-se-resize z-50 bg-blue-500/90 rounded-tl-xl flex items-center justify-center shadow-lg active:bg-blue-600 touch-none"
+              className="absolute right-0 top-0 w-8 h-8 cursor-ne-resize z-50 bg-blue-500/90 rounded-bl-xl flex items-center justify-center shadow-lg active:bg-blue-600 touch-none group"
+              title={language === 'zh' ? '往右上拖曳放大 / 往左下拖曳縮小' : 'Drag towards top-right to scale'}
               onMouseDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 window.getSelection()?.removeAllRanges();
                 document.body.style.userSelect = 'none';
                 document.body.style.webkitUserSelect = 'none';
+                const startX = e.clientX;
                 const startY = e.clientY;
                 const startScale = state.meta.broadcastScale ?? 1;
                 const onMove = (moveEvent: MouseEvent) => {
-                  const deltaY = moveEvent.clientY - startY;
-                  const newScale = Math.max(0.2, Math.min(3, Number((startScale + deltaY * 0.005).toFixed(2))));
+                  const deltaX = moveEvent.clientX - startX;
+                  const deltaY = -(moveEvent.clientY - startY); // Moving up decreases clientY, so invert to positive
+                  const delta = (deltaX + deltaY) / 2;
+                  const newScale = Math.max(0.2, Math.min(3, Number((startScale + delta * 0.005).toFixed(2))));
                   dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: newScale });
                 };
                 const onUp = () => {
@@ -2367,12 +2371,15 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                 e.preventDefault();
                 e.stopPropagation();
                 const touch = e.touches[0];
+                const startX = touch.clientX;
                 const startY = touch.clientY;
                 const startScale = state.meta.broadcastScale ?? 1;
                 const onTouchMove = (moveEvent: TouchEvent) => {
                   if (!moveEvent.touches[0]) return;
-                  const deltaY = moveEvent.touches[0].clientY - startY;
-                  const newScale = Math.max(0.2, Math.min(3, Number((startScale + deltaY * 0.005).toFixed(2))));
+                  const deltaX = moveEvent.touches[0].clientX - startX;
+                  const deltaY = -(moveEvent.touches[0].clientY - startY);
+                  const delta = (deltaX + deltaY) / 2;
+                  const newScale = Math.max(0.2, Math.min(3, Number((startScale + delta * 0.005).toFixed(2))));
                   dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: newScale });
                 };
                 const onTouchEnd = () => {
@@ -2383,7 +2390,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                 window.addEventListener('touchend', onTouchEnd);
               }}
             >
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" className="text-white transform rotate-90"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" className="text-white transform rotate-0"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
             </div>
           )}
 

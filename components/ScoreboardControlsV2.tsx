@@ -349,7 +349,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
       </div>
 
       {/* Main Content Scroll Area */}
-      <div className="flex-1 overflow-y-auto overscroll-contain p-2.5 sm:p-3.5 space-y-3">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2.5 sm:p-3.5 space-y-3 touch-auto">
         {activeTab === 'match' && (
           <>
             {/* 1. INNING CONTROL & 換局按鈕 + BSO BALLS/STRIKES/OUTS + PITCH COUNT */}

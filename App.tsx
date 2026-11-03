@@ -780,7 +780,7 @@ export const App: React.FC = () => {
     }
 
     return (
-      <div className="w-full h-full min-h-screen bg-slate-950">
+      <div className="fixed inset-0 w-full h-full bg-slate-950 overflow-hidden flex flex-col">
         <MobileRemoteView
           state={state}
           dispatch={handleDispatch}
