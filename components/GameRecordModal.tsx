@@ -92,8 +92,8 @@ export const AT_BAT_OUTCOMES_CATEGORIES = [
   {
     key: 'sac',
     category: '戰術 / 推進 (Sacrifices)',
-    color: 'amber',
-    badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+    color: 'teal',
+    badgeColor: 'bg-teal-500/20 text-teal-300 border-teal-500/40',
     items: [
       { id: '犧打', label: '犧牲短打 (SAC)', full: '犧牲觸擊短打 (Sacrifice Bunt)' },
       { id: '犧飛', label: '犧牲飛球 (SF)', full: '外野犧牲飛球 (Sacrifice Fly)' },

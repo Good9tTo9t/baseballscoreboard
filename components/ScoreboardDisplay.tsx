@@ -43,10 +43,10 @@ export const formatAtBatChinese = (rawAb: string, lang: 'en' | 'zh' | 'ja' = 'zh
         ab = ab.replace(/[\(（]\s*\d+\s*[\)）]/, '').trim();
     }
 
-    // Normalized hit checks
+    // 1. 安打 -> 綠色 (Green)
     if (ab === '1B' || ab === '一安' || ab === '安' || ab === '安打' || ab === '中安' || ab === '左安' || ab === '右安' || ab === '一壘打' || ab === '一壘安打' || ab === '內安' || ab === '內野安打' || ab.toLowerCase() === 'single') {
         return { 
-            label: lang === 'en' ? '1B' : lang === 'ja' ? '単打' : '一安', 
+            label: lang === 'en' ? '1B' : lang === 'ja' ? '安打' : '一安', 
             style: 'text-emerald-300 bg-emerald-950/80 border-emerald-500/70 font-bold',
             rbi
         };
@@ -65,48 +65,56 @@ export const formatAtBatChinese = (rawAb: string, lang: 'en' | 'zh' | 'ja' = 'zh
             rbi
         };
     }
+
+    // 2. 全壘打 -> 黃色 (Yellow)
     if (ab === 'HR' || ab === '全壘打' || ab === '全' || ab === '本壘打' || ab.toLowerCase() === 'homerun') {
         return { 
             label: lang === 'en' ? 'HR' : lang === 'ja' ? '本塁打' : '全壘打', 
-            style: 'text-amber-300 bg-amber-950/90 border-amber-400 font-black shadow-[0_0_10px_rgba(251,191,36,0.3)]',
+            style: 'text-yellow-300 bg-yellow-950/90 border-yellow-400 font-black shadow-[0_0_10px_rgba(250,204,21,0.3)]',
             rbi: rbi !== undefined ? rbi : 1
         };
     }
     if (ab === '場內全' || ab === '場內全壘打' || ab === 'IPHR') {
         return {
             label: lang === 'en' ? 'IPHR' : lang === 'ja' ? 'ランニング本塁打' : '場內全',
-            style: 'text-amber-300 bg-amber-950/90 border-amber-400 font-black shadow-[0_0_10px_rgba(251,191,36,0.3)]',
+            style: 'text-yellow-300 bg-yellow-950/90 border-yellow-400 font-black shadow-[0_0_10px_rgba(250,204,21,0.3)]',
             rbi: rbi !== undefined ? rbi : 1
         };
     }
+
+    // 3. 犧牲打 -> 藍綠色 (Teal)
     if (ab === 'SF' || ab === '高飛犧牲打' || ab === '高飛犧' || ab === '犧飛') {
         return { 
-            label: lang === 'en' ? 'SF' : lang === 'ja' ? '犠飛' : '高飛犧', 
-            style: 'text-emerald-300 bg-teal-950/80 border-emerald-500/70 font-bold',
+            label: lang === 'en' ? 'SF' : lang === 'ja' ? '犠飛' : '犧飛', 
+            style: 'text-teal-300 bg-teal-950/80 border-teal-500/70 font-bold',
             rbi: rbi ?? 1
         };
     }
-    if (ab === 'SAC' || ab === '犧牲短打' || ab === '犧打') {
+    if (ab === 'SAC' || ab === '犧牲短打' || ab === '犧打' || ab === 'SH') {
         return {
             label: lang === 'en' ? 'SAC' : lang === 'ja' ? '犠打' : '犧打',
-            style: 'text-amber-300 bg-amber-950/80 border-amber-500/70 font-bold',
+            style: 'text-teal-300 bg-teal-950/80 border-teal-500/70 font-bold',
             rbi
         };
     }
+
+    // 4. 四 死 -> 藍色 (Blue)
     if (ab === 'BB' || ab === '四球' || ab === '四壞' || ab === '保送' || ab === '敬遠' || ab === 'IBB') {
         return { 
             label: lang === 'en' ? (ab === '敬遠' || ab === 'IBB' ? 'IBB' : 'BB') : lang === 'ja' ? (ab === '敬遠' || ab === 'IBB' ? '敬遠' : '四球') : (ab === '敬遠' || ab === 'IBB' ? '敬遠' : '四壞'), 
-            style: 'text-sky-300 bg-sky-950/80 border-sky-500/70 font-bold',
+            style: 'text-sky-300 bg-blue-950/80 border-blue-500/70 font-bold',
             rbi
         };
     }
     if (ab === 'HBP' || ab === '觸身' || ab === '死球') {
         return { 
             label: lang === 'en' ? 'HBP' : lang === 'ja' ? '死球' : '觸身', 
-            style: 'text-cyan-300 bg-cyan-950/80 border-cyan-500/70 font-bold',
+            style: 'text-sky-300 bg-blue-950/80 border-blue-500/70 font-bold',
             rbi
         };
     }
+
+    // 5. 不死 -> 紫色 (Purple)
     if (ab === 'K+WP' || ab === 'K/WP' || ab === 'K+PB' || ab === 'K/PB' || ab === 'D3K' || ab === '不死三振' || ab === '不死') {
         return { 
             label: lang === 'en' ? 'D3K' : lang === 'ja' ? '振逃' : '不死', 
@@ -114,17 +122,28 @@ export const formatAtBatChinese = (rawAb: string, lang: 'en' | 'zh' | 'ja' = 'zh
             rbi
         };
     }
-    if (ab === '失誤' || ab === 'E' || ab === 'ROE' || ab === '失誤上壘' || ab === 'エラー') {
-        return { 
-            label: lang === 'en' ? 'E' : lang === 'ja' ? '失策' : '失誤', 
-            style: 'text-amber-300 bg-amber-950/80 border-amber-500/70 font-bold',
-            rbi
-        };
-    }
+
+    // 6. 三振 雙殺 -> 紅色 (Red)
     if (ab === 'K' || ab === '三振' || ab === '見三振' || ab === 'SO' || ab === 'ꓘ') {
         return { 
             label: lang === 'en' ? 'K' : lang === 'ja' ? '三振' : '三振', 
             style: 'text-rose-300 bg-rose-950/80 border-rose-500/70 font-bold',
+            rbi
+        };
+    }
+    if (ab === '雙殺' || ab === 'DP' || ab === '雙殺打' || ab === '併殺' || ab === 'GDP' || ab === 'GIDP') {
+        return { 
+            label: lang === 'en' ? 'DP' : lang === 'ja' ? '併殺' : '雙殺', 
+            style: 'text-rose-300 bg-rose-950/80 border-rose-500/70 font-bold',
+            rbi
+        };
+    }
+
+    // 7. 滾地 高飛 失誤 -> 灰色 (Gray)
+    if (ab === '失誤' || ab === 'E' || ab === 'ROE' || ab === '失誤上壘' || ab === 'エラー') {
+        return { 
+            label: lang === 'en' ? 'E' : lang === 'ja' ? '失策' : '失誤', 
+            style: 'text-slate-200 bg-slate-800/90 border-slate-600 font-bold',
             rbi
         };
     }
@@ -149,17 +168,10 @@ export const formatAtBatChinese = (rawAb: string, lang: 'en' | 'zh' | 'ja' = 'zh
             rbi
         };
     }
-    if (ab === '雙殺' || ab === 'DP' || ab === '雙殺打' || ab === '併殺' || ab === 'GDP' || ab === 'GIDP') {
-        return { 
-            label: lang === 'en' ? 'DP' : lang === 'ja' ? '併殺' : '雙殺', 
-            style: 'text-rose-400 bg-red-950/90 border-rose-600 font-black shadow-[0_0_10px_rgba(244,63,94,0.3)]',
-            rbi
-        };
-    }
     if (ab === '妨礙打擊' || ab === 'CI') {
         return {
             label: lang === 'en' ? 'CI' : lang === 'ja' ? '打撃妨害' : '妨礙打擊',
-            style: 'text-sky-300 bg-sky-950/80 border-sky-500/70 font-bold',
+            style: 'text-sky-300 bg-blue-950/80 border-blue-500/70 font-bold',
             rbi
         };
     }
@@ -173,14 +185,14 @@ export const formatAtBatChinese = (rawAb: string, lang: 'en' | 'zh' | 'ja' = 'zh
     if (ab === 'OUT' || ab === '出局') {
         return { 
             label: lang === 'en' ? 'OUT' : lang === 'ja' ? '凡退' : '出局', 
-            style: 'text-slate-300 bg-slate-800/80 border-slate-700 font-medium',
+            style: 'text-slate-200 bg-slate-800/90 border-slate-600 font-medium',
             rbi
         };
     }
 
     return { 
         label: ab, 
-        style: 'text-slate-300 bg-slate-800/80 border-slate-700',
+        style: 'text-slate-200 bg-slate-800/90 border-slate-600',
         rbi 
     };
 };

@@ -647,13 +647,68 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       if (newLineup[curIndex]) {
         newLineup[curIndex] = {
           ...newLineup[curIndex],
-          atBats: [...(newLineup[curIndex].atBats || []), runsScored > 0 ? '高飛(1)' : '高飛']
+          atBats: [...(newLineup[curIndex].atBats || []), runsScored > 0 ? '犧飛(1)' : '犧飛']
         };
       }
 
       const curRunners = state.baseRunners || [null, null, null];
       const newBases: [boolean, boolean, boolean] = willResetInning ? [false, false, false] : [state.bases[0], state.bases[1], false];
       const newRunners: [string | null, string | null, string | null] = willResetInning ? [null, null, null] : [curRunners[0], curRunners[1], null];
+
+      return {
+        ...state,
+        outs: willResetInning ? 0 : state.outs + 1,
+        balls: 0,
+        strikes: 0,
+        bases: newBases,
+        baseRunners: newRunners,
+        [teamKey]: {
+          ...teamObj,
+          score: teamObj.score + runsScored,
+          lineup: newLineup,
+          bench: updatedBench,
+          currentBatterIndex: nextIndex,
+          inningScores: runsScored > 0 ? updateInningScore(teamObj, state.inning, runsScored) : teamObj.inningScores
+        }
+      };
+    }
+
+    case 'SAC_BUNT': {
+      const teamKey = state.isTop ? 'awayTeam' : 'homeTeam';
+      const teamObj = state[teamKey];
+      const curIndex = teamObj.currentBatterIndex;
+      const batter = teamObj.lineup[curIndex];
+      const nextIndex = teamObj.lineup.length > 0 ? (curIndex + 1) % teamObj.lineup.length : curIndex;
+      const willResetInning = state.outs >= 2;
+
+      const runsScored = state.bases[2] ? 1 : 0;
+      const scoringRunnerIds = runsScored > 0 ? resolveScoringRunners(teamObj, [2], state.baseRunners, curIndex) : [];
+
+      const { lineup: updatedLineup, bench: updatedBench } = recordTeamScoring(
+        teamObj,
+        scoringRunnerIds,
+        batter?.id,
+        runsScored, // batter gets 1 RBI if runner on 3rd scores
+        false
+      );
+
+      const newLineup = [...updatedLineup];
+      if (newLineup[curIndex]) {
+        newLineup[curIndex] = {
+          ...newLineup[curIndex],
+          atBats: [...(newLineup[curIndex].atBats || []), runsScored > 0 ? '犧打(1)' : '犧打']
+        };
+      }
+
+      const curRunners = state.baseRunners || [null, null, null];
+      // In a sacrifice bunt: batter is OUT, runners advance 1 base.
+      // 3rd base gets runner from 2nd base, 2nd gets runner from 1st, 1st base becomes empty.
+      const newBases: [boolean, boolean, boolean] = willResetInning 
+        ? [false, false, false] 
+        : [false, state.bases[0], state.bases[1]];
+      const newRunners: [string | null, string | null, string | null] = willResetInning 
+        ? [null, null, null] 
+        : [null, curRunners[0], curRunners[1]];
 
       return {
         ...state,

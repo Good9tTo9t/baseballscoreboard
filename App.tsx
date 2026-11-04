@@ -1105,7 +1105,7 @@ export const App: React.FC = () => {
        {/* Footer */}
        <footer className="bg-slate-900 text-slate-500 text-[10px] text-center p-1 border-t border-slate-800 flex flex-col sm:flex-row justify-center items-center gap-1 z-50 relative">
           <span>Made by Yorunann</span>
-          <span className="text-slate-600 ml-2">v3.4.9</span>
+          <span className="text-slate-600 ml-2">v3.4.11</span>
        </footer>
 
         <ShortcutSettingsModal

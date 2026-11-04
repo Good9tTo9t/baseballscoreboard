@@ -976,9 +976,11 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
     setIsWalkModalOpen(false);
   };
 
-  const handleConfirmOut = (outType: '高飛' | '滾地' | '野選' | '雙殺' | '三振' | '出局' | '高飛犧牲打') => {
+  const handleConfirmOut = (outType: '高飛' | '滾地' | '野選' | '雙殺' | '三振' | '出局' | '高飛犧牲打' | '犧牲短打') => {
     if (outType === '高飛犧牲打' && state.outs < 2) {
       dispatch({ type: 'SAC_FLY' });
+    } else if (outType === '犧牲短打' && state.outs < 2) {
+      dispatch({ type: 'SAC_BUNT' });
     } else if (outType === '雙殺') {
       dispatch({ type: 'RECORD_AT_BAT', result: '雙殺' });
       if (state.outs >= 1) {
@@ -2208,14 +2210,6 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
               </button>
             </div>
 
-            <div className="p-2.5 bg-amber-950/30 border border-amber-500/30 rounded-xl text-[11px] text-amber-200 leading-relaxed">
-              {language === 'zh' 
-                ? '使壘上跑者向前推進各 1 壘（三壘跑者回本壘得分）。' 
-                : language === 'ja'
-                ? '走者を各1塁進塁させます（三塁走者は生還）。'
-                : 'Advance all runners by 1 base (runner on 3rd scores).'}
-            </div>
-
             <div className="grid grid-cols-1 gap-3">
               <button
                 onClick={() => {
@@ -2328,6 +2322,24 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                     SF (高飛犧牲打)
                   </span>
                   <span className="text-xs text-emerald-400 font-bold font-mono">+1 得分 · +1 打點 · +1 OUT</span>
+                </div>
+              </button>
+            )}
+
+            {Boolean((state.bases[0] || state.bases[1] || state.bases[2]) && state.outs < 2) && (
+              <button
+                onClick={() => handleConfirmOut('犧牲短打')}
+                className="w-full p-3 bg-gradient-to-r from-amber-950/80 to-yellow-950/80 border-2 border-amber-500/80 rounded-xl transition-all group text-left active:scale-98 shadow-lg cursor-pointer"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black px-2 py-0.5 rounded bg-amber-500/30 text-amber-300 border border-amber-400">
+                    SH (犧牲短打)
+                  </span>
+                  <span className="text-xs text-amber-400 font-bold font-mono">
+                    {state.bases[2] 
+                      ? (language === 'zh' ? '+1 得分 · +1 打點 · 跑者推進 · +1 OUT' : language === 'ja' ? '+1 得点 · +1 打点 · 走者進塁 · +1 OUT' : '+1 Run · +1 RBI · Runners Advance · +1 OUT')
+                      : (language === 'zh' ? '跑者推進各1壘 · +1 OUT' : language === 'ja' ? '走者各1進塁 · +1 OUT' : 'Runners Advance · +1 OUT')}
+                  </span>
                 </div>
               </button>
             )}

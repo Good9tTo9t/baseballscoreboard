@@ -165,6 +165,7 @@ export type ActionType =
   | { type: 'SWAP_TEAMS' }
   | { type: 'WALK'; walkType?: '四球' | '四壞' | '觸身' | '不死三振' | '敬遠' | 'K+WP' | 'K+PB' | '失誤' }
   | { type: 'SAC_FLY' }
+  | { type: 'SAC_BUNT' }
   | { type: 'BATTER_OUT'; outType?: string }
   | { type: 'SINGLE' }
   | { type: 'DOUBLE' }
