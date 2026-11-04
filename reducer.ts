@@ -272,13 +272,24 @@ function baseReducer(state: GameState, action: ActionType): GameState {
           false
         );
 
+        const resultText = runsScored > 0 ? '四壞(1)' : '四壞';
         const newLineup = [...updatedLineup];
         if (newLineup[curIndex]) {
           newLineup[curIndex] = {
             ...newLineup[curIndex],
-            atBats: [...(newLineup[curIndex].atBats || []), runsScored > 0 ? '四壞(1)' : '四壞']
+            atBats: [...(newLineup[curIndex].atBats || []), resultText]
           };
         }
+
+        const paRecord = createPlateAppearanceRecord(state, {
+          result: resultText,
+          rbi: runsScored,
+          runs: 0
+        });
+        paRecord.balls = 4;
+        paRecord.strikes = state.strikes;
+        paRecord.awayScore = state.isTop ? teamObj.score + runsScored : state.awayTeam.score;
+        paRecord.homeScore = !state.isTop ? teamObj.score + runsScored : state.homeTeam.score;
 
         return {
           ...state,
@@ -286,6 +297,8 @@ function baseReducer(state: GameState, action: ActionType): GameState {
           strikes: 0,
           bases: newBases,
           baseRunners: newRunners,
+          playByPlay: [...(state.playByPlay || []), paRecord],
+          currentPaEvents: [],
           [teamKey]: {
             ...teamObj,
             score: teamObj.score + runsScored,
@@ -346,13 +359,24 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         strikeouts: (curPitcher.strikeouts || 0) + 1
       } : curPitcher;
 
+      const paRecord = createPlateAppearanceRecord(state, {
+        result: '三振',
+        rbi: 0,
+        runs: 0
+      });
+      paRecord.strikes = 3;
+      paRecord.balls = state.balls;
+
       return { 
         ...state, 
         strikes: 0,
         balls: 0,
         outs: isThirdOut ? 0 : state.outs + 1,
         bases: isThirdOut ? [false, false, false] : state.bases,
+        baseRunners: isThirdOut ? [null, null, null] : state.baseRunners,
         strikeoutAnimationTrigger: (state.strikeoutAnimationTrigger || 0) + 1,
+        playByPlay: [...(state.playByPlay || []), paRecord],
+        currentPaEvents: [],
         awayTeam: {
           ...state.awayTeam,
           lineup: state.isTop ? updatedBattingLineup : state.awayTeam.lineup,
@@ -520,6 +544,8 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         timer: state.initialTimer,
         isTimerRunning: false,
         animation: null,
+        playByPlay: [],
+        currentPaEvents: [],
         currentPitch: {
           type: '',
           speed: '',
@@ -677,6 +703,12 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         : fieldingTeam;
 
       const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: runsScored, runs: 0 });
+      if (walkText === '四壞' || walkText === '四球' || walkText === '敬遠') {
+        paRecord.balls = 4;
+      }
+      if (walkText === '不死三振' || walkText === 'K+WP' || walkText === 'K+PB') {
+        paRecord.strikes = 3;
+      }
       paRecord.awayScore = state.isTop ? teamObj.score + runsScored : state.awayTeam.score;
       paRecord.homeScore = !state.isTop ? teamObj.score + runsScored : state.homeTeam.score;
 
@@ -835,6 +867,9 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       }
 
       const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: 0, runs: 0 });
+      if (resultText === '三振' || resultText.includes('三振') || resultText.includes('SO') || resultText.includes('K')) {
+        paRecord.strikes = 3;
+      }
 
       return {
         ...state,
@@ -1750,6 +1785,11 @@ function baseReducer(state: GameState, action: ActionType): GameState {
           targetTeam: action.team,
           targetPlayerIndex: pIdx
         });
+        if (action.result === '三振' || action.result.includes('三振')) {
+          paRecord.strikes = 3;
+        } else if (action.result === '四壞' || action.result.startsWith('四壞') || action.result === '四球' || action.result.startsWith('四球') || action.result === '敬遠') {
+          paRecord.balls = 4;
+        }
       }
       return {
         ...state,

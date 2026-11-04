@@ -166,11 +166,13 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
   const [outcomeFilterCategory, setOutcomeFilterCategory] = useState<string>('all');
   const [outcomeSearchQuery, setOutcomeSearchQuery] = useState<string>('');
   const [customOutcomeInput, setCustomOutcomeInput] = useState<string>('');
+  const [isConfirmClearPbp, setIsConfirmClearPbp] = useState(false);
 
   useEffect(() => {
     setSelectedAtBat(null);
     setOutcomeSearchQuery('');
     setCustomOutcomeInput('');
+    setIsConfirmClearPbp(false);
   }, [isOpen, activeTab, activeTeamTab]);
 
   // Sync draft states when modal opens
@@ -451,12 +453,76 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
     // Immediately dispatch live update to state
     setTimeout(() => {
       if (updatedTeam) {
+        const currentPbp = [...(state.playByPlay || [])];
+        const targetTeam = isAway ? updatedTeam : (state.homeTeam || updatedTeam);
+        const targetPlayer = targetTeam.lineup[playerIndex];
+        const pId = targetPlayer?.id;
+        const isSO = outcome.includes('三振') || outcome.includes('K') || outcome.includes('ꓘ') || outcome.includes('SO');
+        const isWalk = outcome.includes('四壞') || outcome.includes('四球') || outcome.includes('敬遠');
+
+        let updatedPbp = currentPbp;
+        if (pId) {
+          const playerPbpIndices: number[] = [];
+          currentPbp.forEach((rec, idx) => {
+            if (rec.batterId === pId || (rec.batterName === targetPlayer.name && rec.battingTeam === (isAway ? 'away' : 'home'))) {
+              playerPbpIndices.push(idx);
+            }
+          });
+
+          if (typeof abIndex === 'number' && abIndex < playerPbpIndices.length) {
+            const pbpIdx = playerPbpIndices[abIndex];
+            if (isClear) {
+              updatedPbp = currentPbp.filter((_, idx) => idx !== pbpIdx);
+            } else {
+              updatedPbp = [...currentPbp];
+              updatedPbp[pbpIdx] = {
+                ...updatedPbp[pbpIdx],
+                result: outcome,
+                strikes: isSO ? 3 : updatedPbp[pbpIdx].strikes,
+                balls: isWalk ? 4 : updatedPbp[pbpIdx].balls,
+              };
+            }
+          } else if (abIndex === 'new' && !isClear) {
+            const oppTeam = isAway ? state.homeTeam : state.awayTeam;
+            const newRecord: PlateAppearanceRecord = {
+              id: `pa-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+              inning: state.inning,
+              isTop: isAway,
+              paNumber: currentPbp.length + 1,
+              paInningNumber: currentPbp.filter(p => p.inning === state.inning && p.isTop === isAway).length + 1,
+              battingTeam: isAway ? 'away' : 'home',
+              battingTeamName: targetTeam.name,
+              pitchingTeam: isAway ? 'home' : 'away',
+              pitchingTeamName: oppTeam.name,
+              batterId: targetPlayer.id,
+              batterName: targetPlayer.name,
+              batterNumber: targetPlayer.number,
+              batterOrder: playerIndex + 1,
+              pitcherId: oppTeam.pitcher?.id,
+              pitcherName: oppTeam.pitcher?.name || (isAway ? '主隊投手' : '客隊投手'),
+              pitcherNumber: oppTeam.pitcher?.number || '--',
+              outs: state.outs,
+              bases: [...state.bases],
+              balls: isWalk ? 4 : 0,
+              strikes: isSO ? 3 : 0,
+              result: outcome,
+              rbi: 0,
+              runs: 0,
+              awayScore: state.awayTeam.score,
+              homeScore: state.homeTeam.score,
+              timestamp: Date.now()
+            };
+            updatedPbp = [...currentPbp, newRecord];
+          }
+        }
+
         dispatch({
           type: 'REPLACE_STATE',
           state: {
             ...state,
             awayTeam: isAway ? updatedTeam : state.awayTeam,
-            homeTeam: !isAway ? updatedTeam : state.homeTeam
+            homeTeam: !isAway ? updatedTeam : state.homeTeam,
+            playByPlay: updatedPbp
           }
         });
       }
@@ -556,12 +622,31 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
 
     setTimeout(() => {
       if (updatedTeam) {
+        const currentPbp = [...(state.playByPlay || [])];
+        const targetTeam = isAway ? updatedTeam : (state.homeTeam || updatedTeam);
+        const targetPlayer = targetTeam.lineup[playerIndex];
+        const pId = targetPlayer?.id;
+        let updatedPbp = currentPbp;
+        if (pId) {
+          const playerPbpIndices: number[] = [];
+          currentPbp.forEach((rec, idx) => {
+            if (rec.batterId === pId || (rec.batterName === targetPlayer.name && rec.battingTeam === (isAway ? 'away' : 'home'))) {
+              playerPbpIndices.push(idx);
+            }
+          });
+          if (abIndex < playerPbpIndices.length) {
+            const pbpIdx = playerPbpIndices[abIndex];
+            updatedPbp = currentPbp.filter((_, idx) => idx !== pbpIdx);
+          }
+        }
+
         dispatch({
           type: 'REPLACE_STATE',
           state: {
             ...state,
             awayTeam: isAway ? updatedTeam : state.awayTeam,
-            homeTeam: !isAway ? updatedTeam : state.homeTeam
+            homeTeam: !isAway ? updatedTeam : state.homeTeam,
+            playByPlay: updatedPbp
           }
         });
       }
@@ -700,10 +785,10 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
 
   // Reconstruct or extract Play-by-Play list
   const effectivePlayByPlay = useMemo<PlateAppearanceRecord[]>(() => {
-    if (state.playByPlay && state.playByPlay.length > 0) {
+    if (Array.isArray(state.playByPlay)) {
       return state.playByPlay;
     }
-    // Reconstruct from lineup if playByPlay is empty
+    // Reconstruct from lineup ONLY if state.playByPlay is null/undefined (legacy games)
     const reconstructed: PlateAppearanceRecord[] = [];
     let paNum = 1;
 
@@ -719,6 +804,8 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
           const m = res.match(/[\(（]\s*(\d+)\s*[\)）]/);
           const rbi = m ? parseInt(m[1], 10) : (res.includes('全壘打') ? 1 : 0);
           const runs = res.includes('全壘打') ? 1 : 0;
+          const isSO = res.includes('三振') || res.includes('K') || res.includes('ꓘ') || res.includes('SO');
+          const isWalk = res.includes('四壞') || res.includes('四球') || res.includes('敬遠');
           reconstructed.push({
             id: `recon-away-${round}-${idx}`,
             inning: Math.min(9, Math.floor((paNum - 1) / 6) + 1),
@@ -736,8 +823,8 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
             pitcherNumber: state.homeTeam.pitcher?.number || '--',
             outs: 0,
             bases: [false, false, false],
-            balls: 0,
-            strikes: 0,
+            balls: isWalk ? 4 : 0,
+            strikes: isSO ? 3 : 0,
             result: res,
             rbi,
             runs,
@@ -755,6 +842,8 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
           const m = res.match(/[\(（]\s*(\d+)\s*[\)）]/);
           const rbi = m ? parseInt(m[1], 10) : (res.includes('全壘打') ? 1 : 0);
           const runs = res.includes('全壘打') ? 1 : 0;
+          const isSO = res.includes('三振') || res.includes('K') || res.includes('ꓘ') || res.includes('SO');
+          const isWalk = res.includes('四壞') || res.includes('四球') || res.includes('敬遠');
           reconstructed.push({
             id: `recon-home-${round}-${idx}`,
             inning: Math.min(9, Math.floor((paNum - 1) / 6) + 1),
@@ -772,8 +861,8 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
             pitcherNumber: state.awayTeam.pitcher?.number || '--',
             outs: 0,
             bases: [false, false, false],
-            balls: 0,
-            strikes: 0,
+            balls: isWalk ? 4 : 0,
+            strikes: isSO ? 3 : 0,
             result: res,
             rbi,
             runs,
@@ -1905,19 +1994,40 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                     </button>
 
                     {effectivePlayByPlay.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (confirm(language === 'zh' ? '確定要清空所有逐打席紀錄嗎？此動作無法復原。' : 'Clear all play-by-play records?')) {
-                            dispatch({ type: 'CLEAR_PLAY_BY_PLAY' });
-                          }
-                        }}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 transition-all cursor-pointer"
-                        title="清空所有逐打席紀錄"
-                      >
-                        <Trash2 size={13} />
-                        <span className="hidden sm:inline">{language === 'zh' ? '清空紀錄' : 'Clear'}</span>
-                      </button>
+                      !isConfirmClearPbp ? (
+                        <button
+                          type="button"
+                          onClick={() => setIsConfirmClearPbp(true)}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 transition-all cursor-pointer active:scale-95"
+                          title="清空所有逐打席紀錄"
+                        >
+                          <Trash2 size={13} />
+                          <span className="hidden sm:inline">{language === 'zh' ? '清空紀錄' : 'Clear'}</span>
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-1.5 bg-rose-950/90 border border-rose-600/80 px-2.5 py-1 rounded-xl shadow-lg animate-in fade-in duration-150">
+                          <span className="text-[11px] text-rose-200 font-bold whitespace-nowrap">
+                            {language === 'zh' ? '確定清空紀錄？' : 'Clear all?'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              dispatch({ type: 'CLEAR_PLAY_BY_PLAY' });
+                              setIsConfirmClearPbp(false);
+                            }}
+                            className="px-2 py-0.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow cursor-pointer active:scale-95"
+                          >
+                            {language === 'zh' ? '確定' : 'Yes'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsConfirmClearPbp(false)}
+                            className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer active:scale-95"
+                          >
+                            {language === 'zh' ? '取消' : 'Cancel'}
+                          </button>
+                        </div>
+                      )
                     )}
                   </div>
                 </div>
@@ -2079,9 +2189,7 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    if (confirm(language === 'zh' ? '確定刪除這筆打席紀錄嗎？' : 'Delete this PA record?')) {
-                                      dispatch({ type: 'DELETE_PLAY_BY_PLAY_RECORD', id: pa.id });
-                                    }
+                                    dispatch({ type: 'DELETE_PLAY_BY_PLAY_RECORD', id: pa.id });
                                   }}
                                   className="text-slate-500 hover:text-rose-400 transition-colors p-1 rounded hover:bg-slate-800 cursor-pointer"
                                   title="刪除此打席紀錄"
