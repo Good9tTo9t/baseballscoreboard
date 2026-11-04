@@ -98,7 +98,9 @@ export const INITIAL_STATE: GameState = {
     gameInfos: ['FPBL 25th', 'G265', '8/3'],
     broadcastMarginX: 20,
     broadcastMarginY: 20,
-  }
+  },
+  playByPlay: [],
+  currentPaEvents: []
 };
 
 export const sanitizeGameState = (loadedState: any, fallbackState: GameState = INITIAL_STATE): GameState => {
@@ -158,6 +160,8 @@ export const sanitizeGameState = (loadedState: any, fallbackState: GameState = I
     meta: {
       ...fallbackState.meta,
       ...(loadedState.meta || {}),
-    }
+    },
+    playByPlay: Array.isArray(loadedState.playByPlay) ? loadedState.playByPlay : (fallbackState.playByPlay || []),
+    currentPaEvents: Array.isArray(loadedState.currentPaEvents) ? loadedState.currentPaEvents : (fallbackState.currentPaEvents || [])
   };
 };

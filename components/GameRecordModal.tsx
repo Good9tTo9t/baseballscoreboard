@@ -3,9 +3,10 @@ import {
   X, Save, FileText, Download, Upload, Printer, Copy, Check, 
   Edit2, Trash2, Plus, Minus, Calendar, Trophy, ChevronRight, ChevronLeft,
   Share2, RotateCcw, History, User, ListOrdered, Sparkles, CheckCircle2,
-  Search, CornerDownLeft
+  Search, CornerDownLeft, FileSpreadsheet, AlertTriangle, Layers, Filter
 } from 'lucide-react';
-import { GameState, Team, Player, SavedGameRecord } from '../types';
+import * as XLSX from 'xlsx';
+import { GameState, Team, Player, SavedGameRecord, PlateAppearanceRecord } from '../types';
 import { getPitcherCount } from '../reducer';
 
 interface GameRecordModalProps {
@@ -101,6 +102,41 @@ export const AT_BAT_OUTCOMES_CATEGORIES = [
   }
 ];
 
+export const getOutcomeBadgeStyle = (outcome: string) => {
+  if (!outcome || outcome === '-' || outcome === '未登場') {
+    return 'bg-slate-800 text-slate-400 border-slate-700';
+  }
+  // 不死 -> 紫色
+  if (outcome.includes('不死')) {
+    return 'bg-purple-900/60 text-purple-200 border-purple-500/50';
+  }
+  // 全壘打 -> 黃色
+  if (outcome.includes('全壘打') || outcome.includes('場內全') || outcome.includes('HR')) {
+    return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50 font-black';
+  }
+  // 安打 -> 綠色
+  if (outcome.includes('安') || outcome.includes('1B') || outcome.includes('2B') || outcome.includes('3B') || outcome.includes('Hit')) {
+    return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold';
+  }
+  // 三振 雙殺 -> 紅色
+  if (outcome.includes('三振') || outcome.includes('雙殺') || outcome.includes('三殺') || outcome.includes('DP') || outcome.includes('TP') || outcome.includes('K') || outcome.includes('ꓘ') || outcome.includes('SO')) {
+    return 'bg-rose-500/20 text-rose-300 border-rose-500/50 font-bold';
+  }
+  // 犧牲打 (犧打、犧飛) -> 藍綠色
+  if (outcome.includes('犧') || outcome.includes('SAC') || outcome.includes('SF')) {
+    return 'bg-teal-500/20 text-teal-300 border-teal-500/50 font-bold';
+  }
+  // 四 死 (四壞、四球、觸身、敬遠、保送) -> 藍色
+  if (outcome.includes('四壞') || outcome.includes('四球') || outcome.includes('觸身') || outcome.includes('敬遠') || outcome.includes('保送') || outcome.includes('BB') || outcome.includes('HBP') || outcome.includes('IBB')) {
+    return 'bg-blue-500/20 text-blue-300 border-blue-500/50 font-bold';
+  }
+  // 滾地 高飛 失誤 -> 灰色
+  if (outcome.includes('滾') || outcome.includes('飛') || outcome.includes('失誤') || outcome.includes('野選') || outcome.includes('出局') || outcome.includes('GO') || outcome.includes('FO') || outcome.includes('LO') || outcome.includes('E')) {
+    return 'bg-slate-700/60 text-slate-300 border-slate-600/60 font-semibold';
+  }
+  return 'bg-slate-800 text-slate-300 border-slate-700';
+};
+
 export const GameRecordModal: React.FC<GameRecordModalProps> = ({
   isOpen,
   onClose,
@@ -108,7 +144,8 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
   dispatch,
   language
 }) => {
-  const [activeTab, setActiveTab] = useState<'boxscore' | 'edit' | 'archive' | 'export'>('boxscore');
+  const [activeTab, setActiveTab] = useState<'boxscore' | 'playbyplay' | 'edit' | 'archive' | 'export'>('boxscore');
+  const [selectedInningFilter, setSelectedInningFilter] = useState<number | 'all'>('all');
   const [activeTeamTab, setActiveTeamTab] = useState<'away' | 'home'>('away');
   const [savedRecords, setSavedRecords] = useState<SavedGameRecord[]>([]);
   const [recordTitle, setRecordTitle] = useState('');
@@ -661,6 +698,285 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
     downloadAnchor.remove();
   };
 
+  // Reconstruct or extract Play-by-Play list
+  const effectivePlayByPlay = useMemo<PlateAppearanceRecord[]>(() => {
+    if (state.playByPlay && state.playByPlay.length > 0) {
+      return state.playByPlay;
+    }
+    // Reconstruct from lineup if playByPlay is empty
+    const reconstructed: PlateAppearanceRecord[] = [];
+    let paNum = 1;
+
+    const maxAwayAbs = Math.max(0, ...state.awayTeam.lineup.map(p => (p.atBats?.length || 0)));
+    const maxHomeAbs = Math.max(0, ...state.homeTeam.lineup.map(p => (p.atBats?.length || 0)));
+    const totalRounds = Math.max(maxAwayAbs, maxHomeAbs);
+
+    for (let round = 0; round < totalRounds; round++) {
+      // Away at-bats (top half)
+      state.awayTeam.lineup.forEach((p, idx) => {
+        if (p.atBats && p.atBats[round]) {
+          const res = p.atBats[round];
+          const m = res.match(/[\(（]\s*(\d+)\s*[\)）]/);
+          const rbi = m ? parseInt(m[1], 10) : (res.includes('全壘打') ? 1 : 0);
+          const runs = res.includes('全壘打') ? 1 : 0;
+          reconstructed.push({
+            id: `recon-away-${round}-${idx}`,
+            inning: Math.min(9, Math.floor((paNum - 1) / 6) + 1),
+            isTop: true,
+            paNumber: paNum++,
+            battingTeam: 'away',
+            battingTeamName: state.awayTeam.name,
+            pitchingTeam: 'home',
+            pitchingTeamName: state.homeTeam.name,
+            batterId: p.id,
+            batterName: p.name,
+            batterNumber: p.number,
+            batterOrder: idx + 1,
+            pitcherName: state.homeTeam.pitcher?.name || '主隊投手',
+            pitcherNumber: state.homeTeam.pitcher?.number || '--',
+            outs: 0,
+            bases: [false, false, false],
+            balls: 0,
+            strikes: 0,
+            result: res,
+            rbi,
+            runs,
+            awayScore: state.awayTeam.score,
+            homeScore: state.homeTeam.score,
+            timestamp: Date.now() - (totalRounds - round) * 60000
+          });
+        }
+      });
+
+      // Home at-bats (bottom half)
+      state.homeTeam.lineup.forEach((p, idx) => {
+        if (p.atBats && p.atBats[round]) {
+          const res = p.atBats[round];
+          const m = res.match(/[\(（]\s*(\d+)\s*[\)）]/);
+          const rbi = m ? parseInt(m[1], 10) : (res.includes('全壘打') ? 1 : 0);
+          const runs = res.includes('全壘打') ? 1 : 0;
+          reconstructed.push({
+            id: `recon-home-${round}-${idx}`,
+            inning: Math.min(9, Math.floor((paNum - 1) / 6) + 1),
+            isTop: false,
+            paNumber: paNum++,
+            battingTeam: 'home',
+            battingTeamName: state.homeTeam.name,
+            pitchingTeam: 'away',
+            pitchingTeamName: state.awayTeam.name,
+            batterId: p.id,
+            batterName: p.name,
+            batterNumber: p.number,
+            batterOrder: idx + 1,
+            pitcherName: state.awayTeam.pitcher?.name || '客隊投手',
+            pitcherNumber: state.awayTeam.pitcher?.number || '--',
+            outs: 0,
+            bases: [false, false, false],
+            balls: 0,
+            strikes: 0,
+            result: res,
+            rbi,
+            runs,
+            awayScore: state.awayTeam.score,
+            homeScore: state.homeTeam.score,
+            timestamp: Date.now() - (totalRounds - round) * 60000 + 30000
+          });
+        }
+      });
+    }
+
+    return reconstructed;
+  }, [state.playByPlay, state.awayTeam, state.homeTeam]);
+
+  const handleExportExcel = () => {
+    try {
+      const wb = XLSX.utils.book_new();
+
+      // --- SHEET 1: BOX SCORE ---
+      const maxInnings = Math.max(9, state.awayTeam.inningScores.length, state.homeTeam.inningScores.length);
+      const inningHeaders = Array.from({ length: maxInnings }, (_, i) => `${i + 1}局`);
+      
+      const lineScoreAoa: any[][] = [
+        ['棒球比賽攻守紀錄表 (Box Score)'],
+        ['賽事名稱', recordTitle || `${state.awayTeam.name} vs ${state.homeTeam.name}`, '日期', new Date().toLocaleDateString()],
+        [''],
+        ['【比分板 (Line Score)】'],
+        ['隊伍', ...inningHeaders, 'R (得分)', 'H (安打)', 'E (失誤)'],
+        [
+          state.awayTeam.name,
+          ...Array.from({ length: maxInnings }, (_, i) => state.awayTeam.inningScores[i] ?? '-'),
+          state.awayTeam.score,
+          state.awayTeam.hits,
+          state.awayTeam.errors
+        ],
+        [
+          state.homeTeam.name,
+          ...Array.from({ length: maxInnings }, (_, i) => state.homeTeam.inningScores[i] ?? '-'),
+          state.homeTeam.score,
+          state.homeTeam.hits,
+          state.homeTeam.errors
+        ],
+        [''],
+        [`【${state.awayTeam.name} 打擊成績】`],
+        ['棒次', '背號', '姓名', '守備位置', '打數 (AB)', '得分 (R)', '安打 (H)', '打點 (RBI)', '四死 (BB)', '三振 (SO)', '打擊率 (AVG)', '打席結果明細']
+      ];
+
+      const populateBattingRows = (team: Team, aoa: any[][]) => {
+        team.lineup.forEach((p, idx) => {
+          if (p.previousPlayers && p.previousPlayers.length > 0) {
+            p.previousPlayers.forEach((prevP, prevIdx) => {
+              const sPrev = getPlayerBattingStats(prevP);
+              aoa.push([
+                prevIdx === 0 ? idx + 1 : '',
+                `#${prevP.number || '--'}`,
+                prevP.name,
+                prevP.position || '先發',
+                sPrev.ab,
+                sPrev.r,
+                sPrev.h,
+                sPrev.rbi,
+                sPrev.bb,
+                sPrev.so,
+                sPrev.avg,
+                sPrev.atBats.join(', ') || '-'
+              ]);
+            });
+          }
+          const s = getPlayerBattingStats(p);
+          const isSub = Boolean(p.previousPlayers && p.previousPlayers.length > 0);
+          aoa.push([
+            !isSub ? idx + 1 : '↳ 代打',
+            `#${p.number || '--'}`,
+            p.name,
+            p.position || (isSub ? 'PH' : 'DH'),
+            s.ab,
+            s.r,
+            s.h,
+            s.rbi,
+            s.bb,
+            s.so,
+            s.avg,
+            s.atBats.join(', ') || '-'
+          ]);
+        });
+        const totals = getTeamTotals(team);
+        aoa.push([
+          '團隊總計', '', '', '',
+          totals.ab, totals.r, totals.h, totals.rbi, totals.bb, totals.so, totals.avg, ''
+        ]);
+      };
+
+      populateBattingRows(state.awayTeam, lineScoreAoa);
+
+      lineScoreAoa.push(['']);
+      lineScoreAoa.push([`【${state.homeTeam.name} 打擊成績】`]);
+      lineScoreAoa.push(['棒次', '背號', '姓名', '守備位置', '打數 (AB)', '得分 (R)', '安打 (H)', '打點 (RBI)', '四死 (BB)', '三振 (SO)', '打擊率 (AVG)', '打席結果明細']);
+      populateBattingRows(state.homeTeam, lineScoreAoa);
+
+      lineScoreAoa.push(['']);
+      lineScoreAoa.push(['【投手投球表現】']);
+      lineScoreAoa.push(['所屬球隊', '狀態', '背號', '投手姓名', '面對打者 (BF)', '投球局數 (IP)', '投球總數 (NP)', '三振 (SO)']);
+
+      // Away Pitchers
+      (state.awayTeam.pitcherHistory || []).forEach(hp => {
+        const bf = (typeof hp.battersFaced === 'number' && hp.battersFaced > 0) ? hp.battersFaced : state.homeTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0);
+        lineScoreAoa.push([state.awayTeam.name, '退場', `#${hp.number || '--'}`, hp.name, bf, hp.inningsPitched || '0.0', getPitcherCount(hp), hp.strikeouts || 0]);
+      });
+      const ap = state.awayTeam.pitcher;
+      const apPrevBf = (state.awayTeam.pitcherHistory || []).reduce((acc, p) => acc + (p.battersFaced || 0), 0);
+      const apCalcBf = Math.max(0, state.homeTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0) - apPrevBf) + (!state.isTop ? 1 : 0);
+      const apBf = (typeof ap.battersFaced === 'number' && ap.battersFaced > 0) ? ap.battersFaced : apCalcBf;
+      lineScoreAoa.push([state.awayTeam.name, '在場', `#${ap.number || '--'}`, ap.name, apBf, ap.inningsPitched || '0.0', getPitcherCount(ap), ap.strikeouts || 0]);
+
+      // Home Pitchers
+      (state.homeTeam.pitcherHistory || []).forEach(hp => {
+        const bf = (typeof hp.battersFaced === 'number' && hp.battersFaced > 0) ? hp.battersFaced : state.awayTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0);
+        lineScoreAoa.push([state.homeTeam.name, '退場', `#${hp.number || '--'}`, hp.name, bf, hp.inningsPitched || '0.0', getPitcherCount(hp), hp.strikeouts || 0]);
+      });
+      const hp = state.homeTeam.pitcher;
+      const hpPrevBf = (state.homeTeam.pitcherHistory || []).reduce((acc, p) => acc + (p.battersFaced || 0), 0);
+      const hpCalcBf = Math.max(0, state.awayTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0) - hpPrevBf) + (state.isTop ? 1 : 0);
+      const hpBf = (typeof hp.battersFaced === 'number' && hp.battersFaced > 0) ? hp.battersFaced : hpCalcBf;
+      lineScoreAoa.push([state.homeTeam.name, '在場', `#${hp.number || '--'}`, hp.name, hpBf, hp.inningsPitched || '0.0', getPitcherCount(hp), hp.strikeouts || 0]);
+
+      const wsBoxScore = XLSX.utils.aoa_to_sheet(lineScoreAoa);
+      XLSX.utils.book_append_sheet(wb, wsBoxScore, '攻守紀錄 (Box Score)');
+
+      // --- SHEET 2: PLAY BY PLAY ---
+      const activePbp = effectivePlayByPlay;
+      const pbpAoa: any[][] = [
+        ['逐打席詳細紀錄表 (Play-by-Play)'],
+        ['賽事名稱', recordTitle || `${state.awayTeam.name} vs ${state.homeTeam.name}`, '匯出時間', new Date().toLocaleString()],
+        [''],
+        [
+          '打席序號',
+          '局數',
+          '半局',
+          '進攻隊伍',
+          '防守隊伍',
+          '棒次',
+          '打者姓名',
+          '打者背號',
+          '投手姓名',
+          '投手背號',
+          '當下出局數',
+          '壘包狀況',
+          '打席結束球數 (B-S)',
+          '打席內事件 (暴投/捕逸)',
+          '打席結果',
+          '打點 (RBI)',
+          '得分 (R)',
+          '當下客隊比分',
+          '當下主隊比分',
+          '時間戳記'
+        ]
+      ];
+
+      activePbp.forEach(p => {
+        const baseStatus = [
+          p.bases[0] ? '一壘' : null,
+          p.bases[1] ? '二壘' : null,
+          p.bases[2] ? '三壘' : null
+        ].filter(Boolean);
+        const baseText = baseStatus.length === 0 ? '無人在壘' : baseStatus.length === 3 ? '滿壘' : baseStatus.join('、') + '有人';
+        const inPaEvents = p.eventsDuringPa && p.eventsDuringPa.length > 0 ? p.eventsDuringPa.join(', ') : '無';
+
+        pbpAoa.push([
+          p.paNumber,
+          `${p.inning}局`,
+          p.isTop ? '上半局 (▲)' : '下半局 (▼)',
+          p.battingTeamName,
+          p.pitchingTeamName,
+          `第 ${p.batterOrder} 棒`,
+          p.batterName,
+          `#${p.batterNumber}`,
+          p.pitcherName,
+          `#${p.pitcherNumber}`,
+          `${p.outs} 出局`,
+          baseText,
+          `${p.balls}B - ${p.strikes}S`,
+          inPaEvents,
+          p.result,
+          p.rbi,
+          p.runs,
+          p.awayScore,
+          p.homeScore,
+          p.timestamp ? new Date(p.timestamp).toLocaleTimeString() : '-'
+        ]);
+      });
+
+      const wsPbp = XLSX.utils.aoa_to_sheet(pbpAoa);
+      XLSX.utils.book_append_sheet(wb, wsPbp, '逐打席紀錄 (Play-by-Play)');
+
+      // Save file
+      const safeGameTitle = (recordTitle || `${state.awayTeam.name}_vs_${state.homeTeam.name}`).replace(/[^a-zA-Z0-9_\-\u4e00-\u9fa5]/g, '_');
+      XLSX.writeFile(wb, `${safeGameTitle}_攻守紀錄與逐打席.xlsx`);
+    } catch (err) {
+      console.error('Failed to export Excel:', err);
+      alert('匯出 Excel 發生錯誤，請檢查瀏覽器下載權限。');
+    }
+  };
+
   const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1013,6 +1329,23 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
             </button>
 
             <button
+              onClick={() => setActiveTab('playbyplay')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'playbyplay'
+                  ? 'bg-teal-600 text-white shadow-md shadow-teal-900/30'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <ListOrdered size={15} />
+              <span>{language === 'zh' ? '逐打席紀錄表' : language === 'ja' ? '打席詳細速報' : 'Play-by-Play'}</span>
+              {effectivePlayByPlay.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 rounded-full bg-white/20 text-[10px] font-mono">
+                  {effectivePlayByPlay.length}
+                </span>
+              )}
+            </button>
+
+            <button
               onClick={() => setActiveTab('edit')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 activeTab === 'edit'
@@ -1054,18 +1387,38 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
             </button>
           </div>
 
-          {/* Quick Copy Button */}
-          <button
-            onClick={handleCopyTextReport}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer shrink-0 ${
-              copied
-                ? 'bg-emerald-900/50 border-emerald-500 text-emerald-300'
-                : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300 hover:text-white'
-            }`}
-          >
-            {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-            <span>{copied ? (language === 'zh' ? '已複製純文字！' : 'Copied!') : (language === 'zh' ? '複製紀錄文字' : 'Copy Text')}</span>
-          </button>
+          {/* Quick Header Export Buttons */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={handleExportExcel}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer bg-emerald-950/60 hover:bg-emerald-800/80 border-emerald-600/60 text-emerald-300 hover:text-white"
+              title="匯出包含攻守紀錄與逐打席的 Excel 試算表 (.xlsx)"
+            >
+              <FileSpreadsheet size={14} className="text-emerald-400" />
+              <span className="hidden sm:inline">匯出 Excel</span>
+            </button>
+
+            <button
+              onClick={handleExportJson}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300 hover:text-white"
+              title="下載 JSON 原始資料"
+            >
+              <Download size={14} className="text-blue-400" />
+              <span className="hidden sm:inline">JSON</span>
+            </button>
+
+            <button
+              onClick={handleCopyTextReport}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                copied
+                  ? 'bg-emerald-900/50 border-emerald-500 text-emerald-300'
+                  : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300 hover:text-white'
+              }`}
+            >
+              {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+              <span>{copied ? (language === 'zh' ? '已複製！' : 'Copied!') : (language === 'zh' ? '複製' : 'Copy')}</span>
+            </button>
+          </div>
         </div>
 
         {/* Content Area */}
@@ -1283,7 +1636,7 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                                               className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                                                 isSelected 
                                                   ? 'bg-amber-400 text-slate-950 font-black ring-2 ring-amber-300 ring-offset-1 ring-offset-slate-900 shadow-md scale-105' 
-                                                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:border-slate-500 active:scale-95'
+                                                  : `${getOutcomeBadgeStyle(ab)} hover:brightness-125 border shadow-sm active:scale-95`
                                               }`}
                                               title="點選此打席更換結果"
                                             >
@@ -1351,7 +1704,7 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                                           className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                                             isSelected 
                                               ? 'bg-amber-400 text-slate-950 font-black ring-2 ring-amber-300 ring-offset-1 ring-offset-slate-900 shadow-md scale-105' 
-                                              : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-500 active:scale-95'
+                                              : `${getOutcomeBadgeStyle(ab)} hover:brightness-125 border shadow-sm active:scale-95`
                                           }`}
                                           title="點選此打席，再從右側更換結果"
                                         >
@@ -1506,6 +1859,377 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                   {renderOutcomePalette(currentDisplayTeam, true)}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TAB 1.5: PLAY-BY-PLAY (逐打席紀錄表) */}
+          {activeTab === 'playbyplay' && (
+            <div className="space-y-4">
+              
+              {/* Header & Controls Banner */}
+              <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 sm:p-4 shadow-lg space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                      <ListOrdered size={18} className="text-teal-400" />
+                      <span>{language === 'zh' ? '逐打席詳細紀錄表 (Play-by-Play)' : 'Play-by-Play Game Log'}</span>
+                      <span className="text-xs font-mono font-normal text-teal-300 bg-teal-950/60 border border-teal-500/40 px-2 py-0.5 rounded-full">
+                        共 {effectivePlayByPlay.length} 打席
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {language === 'zh' 
+                        ? '詳細記載每打席當下出局數、幾壘有人、結束時球數 (B-S)、暴投/捕逸事件與打擊結果' 
+                        : 'Detailed log of each PA: outs, runners on base, final count, WP/PB incidents and result'}
+                    </p>
+                  </div>
+
+                  {/* Actions: Export Excel, Export JSON, Clear */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleExportExcel}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/30 transition-all cursor-pointer active:scale-95"
+                    >
+                      <FileSpreadsheet size={14} />
+                      <span>{language === 'zh' ? '匯出 Excel (.xlsx)' : 'Export Excel'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleExportJson}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all cursor-pointer active:scale-95"
+                    >
+                      <Download size={14} />
+                      <span>{language === 'zh' ? '匯出 JSON' : 'Export JSON'}</span>
+                    </button>
+
+                    {effectivePlayByPlay.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(language === 'zh' ? '確定要清空所有逐打席紀錄嗎？此動作無法復原。' : 'Clear all play-by-play records?')) {
+                            dispatch({ type: 'CLEAR_PLAY_BY_PLAY' });
+                          }
+                        }}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 transition-all cursor-pointer"
+                        title="清空所有逐打席紀錄"
+                      >
+                        <Trash2 size={13} />
+                        <span className="hidden sm:inline">{language === 'zh' ? '清空紀錄' : 'Clear'}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Inning Filter Navigation */}
+                <div className="pt-2 border-t border-slate-800/80">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Filter size={13} className="text-slate-400" />
+                    <span className="text-xs font-bold text-slate-300">
+                      {language === 'zh' ? '分局篩選 (點選切換該局，避免長度過長)：' : 'Filter by Inning:'}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {/* ALL button */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedInningFilter('all')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        selectedInningFilter === 'all'
+                          ? 'bg-teal-600 text-white shadow-md shadow-teal-900/40 ring-1 ring-teal-400'
+                          : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800'
+                      }`}
+                    >
+                      <span>{language === 'zh' ? '全部局數' : 'All Innings'}</span>
+                      <span className="text-[10px] opacity-75 font-mono">({effectivePlayByPlay.length})</span>
+                    </button>
+
+                    {/* Innings 1 to N buttons */}
+                    {Array.from(
+                      { length: Math.max(9, state.inning, ...effectivePlayByPlay.map(p => p.inning)) },
+                      (_, i) => i + 1
+                    ).map(inn => {
+                      const countInInning = effectivePlayByPlay.filter(p => p.inning === inn).length;
+                      const isCurrentGameInning = state.inning === inn;
+                      const isSelected = selectedInningFilter === inn;
+
+                      return (
+                        <button
+                          key={inn}
+                          type="button"
+                          onClick={() => setSelectedInningFilter(inn)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                            isSelected
+                              ? 'bg-teal-600 text-white shadow-md shadow-teal-900/40 ring-1 ring-teal-400'
+                              : countInInning > 0
+                                ? 'bg-slate-900 hover:bg-slate-800 text-white border border-slate-700'
+                                : 'bg-slate-900/60 hover:bg-slate-800/80 text-slate-500 border border-slate-800/60'
+                          }`}
+                        >
+                          <span>{language === 'zh' ? `第 ${inn} 局` : `Inn ${inn}`}</span>
+                          {countInInning > 0 && (
+                            <span className={`text-[10px] px-1 rounded-full font-mono ${
+                              isSelected ? 'bg-teal-900/80 text-teal-200' : 'bg-slate-800 text-slate-300'
+                            }`}>
+                              {countInInning}
+                            </span>
+                          )}
+                          {isCurrentGameInning && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse ml-0.5" title="進行中" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Play-by-Play List Display */}
+              {(() => {
+                const filteredPbp = selectedInningFilter === 'all'
+                  ? effectivePlayByPlay
+                  : effectivePlayByPlay.filter(p => p.inning === selectedInningFilter);
+
+                if (filteredPbp.length === 0) {
+                  return (
+                    <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-10 text-center space-y-3">
+                      <div className="w-12 h-12 mx-auto rounded-2xl bg-slate-800/60 text-slate-500 flex items-center justify-center">
+                        <ListOrdered size={24} />
+                      </div>
+                      <h4 className="text-white font-bold text-sm">
+                        {selectedInningFilter === 'all'
+                          ? (language === 'zh' ? '目前尚無打席紀錄' : 'No plate appearance records yet')
+                          : (language === 'zh' ? `第 ${selectedInningFilter} 局尚無打席紀錄` : `No records in Inning ${selectedInningFilter}`)}
+                      </h4>
+                      <p className="text-xs text-slate-400 max-w-md mx-auto">
+                        {language === 'zh'
+                          ? '在計分板記錄安打、出局、四死球或暴投時，系統將即時自動寫入逐打席歷程！可點選上方「全部局數」或其他局數瀏覽。'
+                          : 'As you record at-bats, singles, home runs, outs, walks, or wild pitches, records will automatically appear here!'}
+                      </p>
+                      {selectedInningFilter !== 'all' && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedInningFilter('all')}
+                          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          {language === 'zh' ? '顯示全部局數' : 'Show All Innings'}
+                        </button>
+                      )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3">
+                    {/* List of Play-by-Play items */}
+                    <div className="grid grid-cols-1 gap-2.5">
+                      {filteredPbp.map((pa, idx) => {
+                        const isTop = pa.isTop;
+                        const battingColor = isTop ? state.awayTeam.color : state.homeTeam.color;
+                        const pitchingColor = isTop ? state.homeTeam.color : state.awayTeam.color;
+
+                        // Diamond base representation
+                        const base1 = pa.bases[0];
+                        const base2 = pa.bases[1];
+                        const base3 = pa.bases[2];
+                        const runnerCount = [base1, base2, base3].filter(Boolean).length;
+                        const baseText = runnerCount === 0 
+                          ? '無人在壘' 
+                          : runnerCount === 3 
+                            ? '滿壘' 
+                            : [base1 ? '一壘' : null, base2 ? '二壘' : null, base3 ? '三壘' : null].filter(Boolean).join('、') + '有人';
+
+                        return (
+                          <div
+                            key={pa.id || idx}
+                            className="bg-slate-950/85 border border-slate-800 hover:border-slate-700/90 rounded-2xl p-3 sm:p-4 shadow-lg transition-all hover:bg-slate-900/60"
+                          >
+                            {/* Card Header */}
+                            <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80 text-xs">
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 font-mono font-bold text-[11px] border border-slate-700">
+                                  PA #{pa.paNumber}
+                                </span>
+
+                                <span className={`px-2 py-0.5 rounded-lg font-bold text-[11px] flex items-center gap-1 ${
+                                  isTop ? 'bg-blue-950 text-blue-300 border border-blue-800/60' : 'bg-indigo-950 text-indigo-300 border border-indigo-800/60'
+                                }`}>
+                                  <span>{isTop ? '▲' : '▼'}</span>
+                                  <span>{pa.inning} 局{isTop ? '上' : '下'}</span>
+                                </span>
+
+                                <div className="flex items-center gap-1.5 font-bold">
+                                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: battingColor }} />
+                                  <span className="text-white">{pa.battingTeamName}</span>
+                                  <span className="text-slate-500 text-[10px]">進攻</span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-3 text-slate-400 font-mono text-[11px]">
+                                <span className="bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-slate-300">
+                                  比分 {state.awayTeam.name} {pa.awayScore} - {pa.homeScore} {state.homeTeam.name}
+                                </span>
+                                {pa.timestamp && (
+                                  <span className="hidden sm:inline text-slate-500">
+                                    {new Date(pa.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (confirm(language === 'zh' ? '確定刪除這筆打席紀錄嗎？' : 'Delete this PA record?')) {
+                                      dispatch({ type: 'DELETE_PLAY_BY_PLAY_RECORD', id: pa.id });
+                                    }
+                                  }}
+                                  className="text-slate-500 hover:text-rose-400 transition-colors p-1 rounded hover:bg-slate-800 cursor-pointer"
+                                  title="刪除此打席紀錄"
+                                >
+                                  <X size={13} />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Card Body Grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-12 gap-3 pt-3 items-center">
+                              
+                              {/* 1. Batter Info */}
+                              <div className="sm:col-span-3 space-y-0.5">
+                                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                                  打者 (Batter)
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="bg-slate-800 text-slate-300 text-[10px] font-bold px-1.5 py-0.2 rounded font-mono">
+                                    第 {pa.batterOrder} 棒
+                                  </span>
+                                  <span className="text-white font-bold text-sm">
+                                    {pa.batterName}
+                                  </span>
+                                  <span className="text-slate-400 font-mono text-xs">
+                                    #{pa.batterNumber}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* 2. Pitcher Info */}
+                              <div className="sm:col-span-2 space-y-0.5">
+                                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                                  <span>投手 (Pitcher)</span>
+                                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: pitchingColor }} />
+                                </div>
+                                <div className="flex items-center gap-1 text-slate-200 font-bold text-sm">
+                                  <span>{pa.pitcherName}</span>
+                                  <span className="text-slate-400 font-mono text-xs">#{pa.pitcherNumber}</span>
+                                </div>
+                              </div>
+
+                              {/* 3. Outs Situation */}
+                              <div className="sm:col-span-2 space-y-0.5">
+                                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                                  當下出局數
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`px-2 py-0.5 rounded-lg text-xs font-bold border ${
+                                    pa.outs === 0 
+                                      ? 'bg-slate-800/80 text-slate-300 border-slate-700' 
+                                      : pa.outs === 1 
+                                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/50' 
+                                        : 'bg-rose-500/20 text-rose-300 border-rose-500/50'
+                                  }`}>
+                                    {pa.outs} 出局
+                                  </span>
+                                  {/* Circles */}
+                                  <div className="flex items-center gap-1">
+                                    <span className={`w-2 h-2 rounded-full ${pa.outs >= 1 ? 'bg-rose-500' : 'bg-slate-700'}`} />
+                                    <span className={`w-2 h-2 rounded-full ${pa.outs >= 2 ? 'bg-rose-500' : 'bg-slate-700'}`} />
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* 4. Runners on Base Situation with Mini Diamond */}
+                              <div className="sm:col-span-2 space-y-0.5">
+                                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                                  幾壘有人
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {/* Mini Diamond */}
+                                  <div className="relative w-6 h-6 shrink-0 flex items-center justify-center">
+                                    {/* 2nd base */}
+                                    <span className={`absolute top-0 w-2 h-2 rotate-45 border ${
+                                      base2 ? 'bg-amber-400 border-amber-200 ring-1 ring-amber-400/60' : 'bg-slate-800 border-slate-700'
+                                    }`} />
+                                    {/* 3rd base */}
+                                    <span className={`absolute left-0 w-2 h-2 rotate-45 border ${
+                                      base3 ? 'bg-amber-400 border-amber-200 ring-1 ring-amber-400/60' : 'bg-slate-800 border-slate-700'
+                                    }`} />
+                                    {/* 1st base */}
+                                    <span className={`absolute right-0 w-2 h-2 rotate-45 border ${
+                                      base1 ? 'bg-amber-400 border-amber-200 ring-1 ring-amber-400/60' : 'bg-slate-800 border-slate-700'
+                                    }`} />
+                                    {/* Home plate */}
+                                    <span className="absolute bottom-0 w-1.5 h-1.5 rotate-45 bg-slate-600 border border-slate-500" />
+                                  </div>
+
+                                  <span className={`text-xs font-bold ${runnerCount > 0 ? 'text-amber-300' : 'text-slate-400'}`}>
+                                    {baseText}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* 5. Count & Events */}
+                              <div className="sm:col-span-3 flex flex-wrap items-center justify-between sm:justify-end gap-2">
+                                {/* Balls & Strikes */}
+                                <div className="space-y-0.5">
+                                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider text-right">
+                                    結束球數
+                                  </div>
+                                  <div className="flex items-center gap-1.5 font-mono text-xs font-bold bg-slate-900 px-2 py-0.5 rounded-lg border border-slate-800">
+                                    <span className="text-sky-400">{pa.balls}B</span>
+                                    <span className="text-slate-600">-</span>
+                                    <span className="text-rose-400">{pa.strikes}S</span>
+                                  </div>
+                                </div>
+
+                                {/* Outcome Result Badge */}
+                                <div className="space-y-0.5 text-right">
+                                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                                    打席結果
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-black border shadow-sm ${getOutcomeBadgeStyle(pa.result)}`}>
+                                      {pa.result}
+                                    </span>
+                                    {pa.rbi > 0 && (
+                                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                                        +{pa.rbi}打點
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                            </div>
+
+                            {/* In-PA Events Footer (Wild Pitch, Passed Ball, Balk) */}
+                            {pa.eventsDuringPa && pa.eventsDuringPa.length > 0 && (
+                              <div className="mt-2.5 pt-2 border-t border-slate-800/70 flex items-center gap-2 text-xs">
+                                <span className="flex items-center gap-1 text-amber-400 font-bold text-[11px] bg-amber-950/60 border border-amber-500/40 px-2 py-0.5 rounded-lg">
+                                  <AlertTriangle size={12} />
+                                  <span>打席內事件：</span>
+                                  <span className="text-amber-200">{pa.eventsDuringPa.join('、')}</span>
+                                </span>
+                              </div>
+                            )}
+
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
             </div>
           )}
 
@@ -1954,7 +2678,7 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
             <div className="space-y-4">
               
               {/* Quick Actions Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 
                 {/* 1. Copy Plain Text Box Score */}
                 <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-xl flex flex-col justify-between space-y-3">
@@ -1963,7 +2687,7 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                       <Copy size={16} />
                     </div>
                     <h4 className="font-bold text-white text-sm">
-                      {language === 'zh' ? '一鍵複製純文字紀錄表' : 'Copy Plain Text Box Score'}
+                      {language === 'zh' ? '一鍵複製純文字紀錄' : 'Copy Plain Text Box Score'}
                     </h4>
                     <p className="text-xs text-slate-400 mt-1">
                       {language === 'zh' ? '整理為排版工整之文字成績表，適合直接貼在 LINE 群組或社群軟體。' : 'Formatted for messaging apps and social media.'}
@@ -1982,17 +2706,40 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                   </button>
                 </div>
 
-                {/* 2. Download JSON Backup */}
-                <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-xl flex flex-col justify-between space-y-3">
+                {/* 2. Download Excel Workbook (.xlsx) */}
+                <div className="bg-slate-950/80 border border-emerald-500/30 p-4 rounded-xl flex flex-col justify-between space-y-3">
                   <div>
                     <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-2">
+                      <FileSpreadsheet size={16} />
+                    </div>
+                    <h4 className="font-bold text-white text-sm flex items-center gap-1.5">
+                      <span>{language === 'zh' ? '匯出 Excel 試算表' : 'Export Excel (.xlsx)'}</span>
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1 rounded font-mono">雙Sheet</span>
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {language === 'zh' ? '包含「攻守紀錄表 (Box Score)」與「逐打席紀錄 (Play-by-Play)」雙工作表，可於 Excel/試算表直接編輯。' : 'Includes Box Score & Play-by-Play sheets.'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleExportExcel}
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md shadow-emerald-900/30 transition-all cursor-pointer active:scale-95"
+                  >
+                    <FileSpreadsheet size={14} />
+                    <span>{language === 'zh' ? '下載 Excel 檔 (.xlsx)' : 'Download .xlsx'}</span>
+                  </button>
+                </div>
+
+                {/* 3. Download JSON Backup */}
+                <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-xl flex flex-col justify-between space-y-3">
+                  <div>
+                    <div className="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center mb-2">
                       <Download size={16} />
                     </div>
                     <h4 className="font-bold text-white text-sm">
                       {language === 'zh' ? '匯出 JSON 紀錄備份' : 'Export JSON Backup'}
                     </h4>
                     <p className="text-xs text-slate-400 mt-1">
-                      {language === 'zh' ? '完整將比賽陣容、數據與分數導出為檔案，可隨時重新匯入。' : 'Save complete game dataset as a downloadable file.'}
+                      {language === 'zh' ? '完整將比賽陣容、數據、比分與逐打席導出為檔案，可隨時重新匯入。' : 'Save complete game dataset as a downloadable file.'}
                     </p>
                   </div>
                   <button
@@ -2004,7 +2751,7 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                   </button>
                 </div>
 
-                {/* 3. Import JSON File */}
+                {/* 4. Import JSON File */}
                 <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-xl flex flex-col justify-between space-y-3">
                   <div>
                     <div className="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center mb-2">

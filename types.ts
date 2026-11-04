@@ -103,6 +103,37 @@ export interface AnimationData {
   isExiting?: boolean;
 }
 
+export interface PlateAppearanceRecord {
+  id: string;
+  inning: number;
+  isTop: boolean;
+  paNumber: number; // Overall PA sequence number
+  paInningNumber?: number; // PA sequence number within current half-inning
+  battingTeam: 'away' | 'home';
+  battingTeamName: string;
+  pitchingTeam: 'away' | 'home';
+  pitchingTeamName: string;
+  batterId: string;
+  batterName: string;
+  batterNumber: string;
+  batterOrder: number; // 1-indexed batting order (1-9)
+  pitcherId?: string;
+  pitcherName: string;
+  pitcherNumber: string;
+  outs: number; // 0, 1, 2
+  bases: [boolean, boolean, boolean]; // [1B, 2B, 3B]
+  balls: number;
+  strikes: number;
+  pitchesCount?: number;
+  eventsDuringPa?: string[]; // e.g. ['暴投 (WP)', '捕逸 (PB)', '投手犯規 (BK)']
+  result: string; // e.g. '一安', '三振', '四壞', '全壘打(2)', '滾地', '犧飛', '犧打'
+  rbi: number;
+  runs: number;
+  awayScore: number;
+  homeScore: number;
+  timestamp: number;
+}
+
 export interface GameState {
   awayTeam: Team;
   homeTeam: Team;
@@ -144,6 +175,10 @@ export interface GameState {
   strikeoutAnimationTrigger?: number;
   isAdjustmentMode?: boolean;
   initialTimer: number;
+
+  // Play-by-Play & In-PA Tracking
+  playByPlay?: PlateAppearanceRecord[];
+  currentPaEvents?: string[];
 }
 
 export type ActionType = 
@@ -223,4 +258,7 @@ export type ActionType =
   | { type: 'REPLACE_STATE'; state: GameState }
   | { type: 'TRIGGER_HR_BUBBLE' }
   | { type: 'LOCK_HR_ANIMATION' }
-  | { type: 'EXIT_HR_ANIMATION' };
+  | { type: 'EXIT_HR_ANIMATION' }
+  | { type: 'ADD_PLAY_BY_PLAY_RECORD'; record: PlateAppearanceRecord }
+  | { type: 'DELETE_PLAY_BY_PLAY_RECORD'; id: string }
+  | { type: 'CLEAR_PLAY_BY_PLAY' };

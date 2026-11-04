@@ -1,7 +1,77 @@
-import { GameState, ActionType, Player, Team } from './types';
+import { GameState, ActionType, Player, Team, PlateAppearanceRecord } from './types';
 import { INITIAL_STATE } from './constants';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
+
+export const createPlateAppearanceRecord = (
+  state: GameState,
+  params: {
+    result: string;
+    rbi?: number;
+    runs?: number;
+    targetTeam?: 'away' | 'home';
+    targetPlayerIndex?: number;
+  }
+): PlateAppearanceRecord => {
+  const battingTeamKey = params.targetTeam 
+    ? (params.targetTeam === 'away' ? 'awayTeam' : 'homeTeam') 
+    : (state.isTop ? 'awayTeam' : 'homeTeam');
+  const pitchingTeamKey = battingTeamKey === 'awayTeam' ? 'homeTeam' : 'awayTeam';
+  
+  const battingTeam = state[battingTeamKey];
+  const pitchingTeam = state[pitchingTeamKey];
+  
+  const batterIdx = params.targetPlayerIndex !== undefined 
+    ? params.targetPlayerIndex 
+    : battingTeam.currentBatterIndex;
+  const batter = battingTeam.lineup[batterIdx] || { id: 'unknown', name: '打者', number: '--' };
+  const pitcher = pitchingTeam.pitcher || state.pitcher || { id: 'unknown', name: '投手', number: '--' };
+  
+  const currentPbp = state.playByPlay || [];
+  const paNumber = currentPbp.length + 1;
+  const inningPbpCount = currentPbp.filter(p => p.inning === state.inning && p.isTop === state.isTop).length + 1;
+
+  let rbi = params.rbi || 0;
+  let runs = params.runs || 0;
+  if (rbi === 0) {
+    const m = params.result.match(/[\(（]\s*(\d+)\s*[\)）]/);
+    if (m) rbi = parseInt(m[1], 10);
+    else if (params.result.includes('全壘打') || params.result.includes('HR')) rbi = 1;
+  }
+  if (runs === 0 && (params.result.includes('全壘打') || params.result.includes('HR'))) {
+    runs = 1;
+  }
+
+  return {
+    id: `pa-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+    inning: state.inning,
+    isTop: state.isTop,
+    paNumber,
+    paInningNumber: inningPbpCount,
+    battingTeam: battingTeamKey === 'awayTeam' ? 'away' : 'home',
+    battingTeamName: battingTeam.name || (state.isTop ? '客隊' : '主隊'),
+    pitchingTeam: pitchingTeamKey === 'awayTeam' ? 'away' : 'home',
+    pitchingTeamName: pitchingTeam.name || (!state.isTop ? '客隊' : '主隊'),
+    batterId: batter.id,
+    batterName: batter.name,
+    batterNumber: batter.number,
+    batterOrder: batterIdx + 1,
+    pitcherId: pitcher.id,
+    pitcherName: pitcher.name,
+    pitcherNumber: pitcher.number,
+    outs: state.outs,
+    bases: [...state.bases] as [boolean, boolean, boolean],
+    balls: state.balls,
+    strikes: state.strikes,
+    eventsDuringPa: state.currentPaEvents && state.currentPaEvents.length > 0 ? [...state.currentPaEvents] : undefined,
+    result: params.result,
+    rbi,
+    runs,
+    awayScore: state.awayTeam.score,
+    homeScore: state.homeTeam.score,
+    timestamp: Date.now()
+  };
+};
 
 const incrementPitchStat = (stat?: string): string => {
   if (!stat) return '1';
@@ -606,12 +676,18 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         ? { ...fieldingTeam, errors: (fieldingTeam.errors || 0) + 1 }
         : fieldingTeam;
 
+      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: runsScored, runs: 0 });
+      paRecord.awayScore = state.isTop ? teamObj.score + runsScored : state.awayTeam.score;
+      paRecord.homeScore = !state.isTop ? teamObj.score + runsScored : state.homeTeam.score;
+
       return {
         ...state,
         balls: 0,
         strikes: 0,
         bases: newBases,
         baseRunners: newRunners,
+        playByPlay: [...(state.playByPlay || []), paRecord],
+        currentPaEvents: [],
         [teamKey]: {
           ...teamObj,
           score: teamObj.score + runsScored,
@@ -643,17 +719,22 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         false
       );
 
+      const resultText = runsScored > 0 ? '犧飛(1)' : '犧飛';
       const newLineup = [...updatedLineup];
       if (newLineup[curIndex]) {
         newLineup[curIndex] = {
           ...newLineup[curIndex],
-          atBats: [...(newLineup[curIndex].atBats || []), runsScored > 0 ? '犧飛(1)' : '犧飛']
+          atBats: [...(newLineup[curIndex].atBats || []), resultText]
         };
       }
 
       const curRunners = state.baseRunners || [null, null, null];
       const newBases: [boolean, boolean, boolean] = willResetInning ? [false, false, false] : [state.bases[0], state.bases[1], false];
       const newRunners: [string | null, string | null, string | null] = willResetInning ? [null, null, null] : [curRunners[0], curRunners[1], null];
+
+      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: runsScored, runs: 0 });
+      paRecord.awayScore = state.isTop ? teamObj.score + runsScored : state.awayTeam.score;
+      paRecord.homeScore = !state.isTop ? teamObj.score + runsScored : state.homeTeam.score;
 
       return {
         ...state,
@@ -662,6 +743,8 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         strikes: 0,
         bases: newBases,
         baseRunners: newRunners,
+        playByPlay: [...(state.playByPlay || []), paRecord],
+        currentPaEvents: [],
         [teamKey]: {
           ...teamObj,
           score: teamObj.score + runsScored,
@@ -692,23 +775,26 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         false
       );
 
+      const resultText = runsScored > 0 ? '犧打(1)' : '犧打';
       const newLineup = [...updatedLineup];
       if (newLineup[curIndex]) {
         newLineup[curIndex] = {
           ...newLineup[curIndex],
-          atBats: [...(newLineup[curIndex].atBats || []), runsScored > 0 ? '犧打(1)' : '犧打']
+          atBats: [...(newLineup[curIndex].atBats || []), resultText]
         };
       }
 
       const curRunners = state.baseRunners || [null, null, null];
-      // In a sacrifice bunt: batter is OUT, runners advance 1 base.
-      // 3rd base gets runner from 2nd base, 2nd gets runner from 1st, 1st base becomes empty.
       const newBases: [boolean, boolean, boolean] = willResetInning 
         ? [false, false, false] 
         : [false, state.bases[0], state.bases[1]];
       const newRunners: [string | null, string | null, string | null] = willResetInning 
         ? [null, null, null] 
         : [null, curRunners[0], curRunners[1]];
+
+      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: runsScored, runs: 0 });
+      paRecord.awayScore = state.isTop ? teamObj.score + runsScored : state.awayTeam.score;
+      paRecord.homeScore = !state.isTop ? teamObj.score + runsScored : state.homeTeam.score;
 
       return {
         ...state,
@@ -717,6 +803,8 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         strikes: 0,
         bases: newBases,
         baseRunners: newRunners,
+        playByPlay: [...(state.playByPlay || []), paRecord],
+        currentPaEvents: [],
         [teamKey]: {
           ...teamObj,
           score: teamObj.score + runsScored,
@@ -746,6 +834,8 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         };
       }
 
+      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: 0, runs: 0 });
+
       return {
         ...state,
         [teamKey]: {
@@ -758,6 +848,8 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         strikes: 0,
         bases: willResetInning ? [false, false, false] : state.bases,
         baseRunners: willResetInning ? [null, null, null] : state.baseRunners,
+        playByPlay: [...(state.playByPlay || []), paRecord],
+        currentPaEvents: [],
       };
     }
 
@@ -779,11 +871,12 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         false
       );
 
+      const resultText = runsScored > 0 ? '一安(1)' : '一安';
       const newLineup = [...updatedLineup];
       if (newLineup[curIndex]) {
         newLineup[curIndex] = {
           ...newLineup[curIndex],
-          atBats: [...(newLineup[curIndex].atBats || []), runsScored > 0 ? '一安(1)' : '一安']
+          atBats: [...(newLineup[curIndex].atBats || []), resultText]
         };
       }
 
@@ -791,12 +884,18 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       const newBases: [boolean, boolean, boolean] = [true, state.bases[0], state.bases[1]];
       const newRunners: [string | null, string | null, string | null] = [batter?.id || null, curRunners[0], curRunners[1]];
 
+      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: runsScored, runs: 0 });
+      paRecord.awayScore = state.isTop ? teamObj.score + runsScored : state.awayTeam.score;
+      paRecord.homeScore = !state.isTop ? teamObj.score + runsScored : state.homeTeam.score;
+
       return {
         ...state,
         balls: 0,
         strikes: 0,
         bases: newBases,
         baseRunners: newRunners,
+        playByPlay: [...(state.playByPlay || []), paRecord],
+        currentPaEvents: [],
         [teamKey]: { 
           ...teamObj, 
           score: teamObj.score + runsScored, 
@@ -830,11 +929,12 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         false
       );
 
+      const resultText = runsScored > 0 ? `二安(${runsScored})` : '二安';
       const newLineup = [...updatedLineup];
       if (newLineup[curIndex]) {
         newLineup[curIndex] = {
           ...newLineup[curIndex],
-          atBats: [...(newLineup[curIndex].atBats || []), runsScored > 0 ? `二安(${runsScored})` : '二安']
+          atBats: [...(newLineup[curIndex].atBats || []), resultText]
         };
       }
 
@@ -842,12 +942,18 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       const newBases: [boolean, boolean, boolean] = [false, true, state.bases[0]];
       const newRunners: [string | null, string | null, string | null] = [null, batter?.id || null, curRunners[0]];
 
+      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: runsScored, runs: 0 });
+      paRecord.awayScore = state.isTop ? teamObj.score + runsScored : state.awayTeam.score;
+      paRecord.homeScore = !state.isTop ? teamObj.score + runsScored : state.homeTeam.score;
+
       return {
         ...state,
         balls: 0,
         strikes: 0,
         bases: newBases,
         baseRunners: newRunners,
+        playByPlay: [...(state.playByPlay || []), paRecord],
+        currentPaEvents: [],
         [teamKey]: { 
           ...teamObj, 
           score: teamObj.score + runsScored, 
@@ -882,16 +988,21 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         false
       );
 
+      const resultText = runsScored > 0 ? `三安(${runsScored})` : '三安';
       const newLineup = [...updatedLineup];
       if (newLineup[curIndex]) {
         newLineup[curIndex] = {
           ...newLineup[curIndex],
-          atBats: [...(newLineup[curIndex].atBats || []), runsScored > 0 ? `三安(${runsScored})` : '三安']
+          atBats: [...(newLineup[curIndex].atBats || []), resultText]
         };
       }
 
       const newBases: [boolean, boolean, boolean] = [false, false, true];
       const newRunners: [string | null, string | null, string | null] = [null, null, batter?.id || null];
+
+      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: runsScored, runs: 0 });
+      paRecord.awayScore = state.isTop ? teamObj.score + runsScored : state.awayTeam.score;
+      paRecord.homeScore = !state.isTop ? teamObj.score + runsScored : state.homeTeam.score;
 
       return {
         ...state,
@@ -899,6 +1010,8 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         strikes: 0,
         bases: newBases,
         baseRunners: newRunners,
+        playByPlay: [...(state.playByPlay || []), paRecord],
+        currentPaEvents: [],
         [teamKey]: { 
           ...teamObj, 
           score: teamObj.score + runsScored, 
@@ -941,13 +1054,18 @@ function baseReducer(state: GameState, action: ActionType): GameState {
 
       const playerName = batter ? (batter.number ? `${batter.name} #${batter.number}` : batter.name) : (state.isTop ? '客隊打者' : '主隊打者');
 
+      const resultText = `全壘打(${runsScored})`;
       const newLineup = [...updatedLineup];
       if (newLineup[curIndex]) {
         newLineup[curIndex] = {
           ...newLineup[curIndex],
-          atBats: [...(newLineup[curIndex].atBats || []), `全壘打(${runsScored})`]
+          atBats: [...(newLineup[curIndex].atBats || []), resultText]
         };
       }
+
+      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: runsScored, runs: 1 });
+      paRecord.awayScore = state.isTop ? teamObj.score + runsScored : state.awayTeam.score;
+      paRecord.homeScore = !state.isTop ? teamObj.score + runsScored : state.homeTeam.score;
 
       return {
         ...state,
@@ -955,6 +1073,8 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         strikes: 0,
         bases: [false, false, false],
         baseRunners: [null, null, null],
+        playByPlay: [...(state.playByPlay || []), paRecord],
+        currentPaEvents: [],
         [teamKey]: { 
           ...teamObj, 
           score: teamObj.score + runsScored, 
@@ -1005,6 +1125,14 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         newRunners[0] = null;
       }
 
+      // Track in-PA events: WP, PB, or BK
+      const eventLabel = action.subType === 'BK' 
+        ? '投手犯規 (BK)' 
+        : action.subType === 'PB' 
+          ? '捕逸 (PB)' 
+          : '暴投 (WP)';
+      const updatedPaEvents = [...(state.currentPaEvents || []), eventLabel];
+
       // Increment errors (+1) on the fielding (defending) team for WP and PB (Balk does not count as error)
       const isError = action.subType !== 'BK';
       const updatedFieldingTeam = {
@@ -1025,6 +1153,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
           ...state,
           bases: newBases,
           baseRunners: newRunners,
+          currentPaEvents: updatedPaEvents,
           [battingTeamKey]: {
             ...battingTeam,
             score: battingTeam.score + runsScored,
@@ -1040,6 +1169,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         ...state,
         bases: newBases,
         baseRunners: newRunners,
+        currentPaEvents: updatedPaEvents,
         [fieldingTeamKey]: updatedFieldingTeam
       };
     }
@@ -1590,6 +1720,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       const teamObj = state[teamKey];
       const pIdx = action.playerIndex !== undefined ? action.playerIndex : teamObj.currentBatterIndex;
       const newLineup = [...teamObj.lineup];
+      let paRecord: PlateAppearanceRecord | null = null;
       if (newLineup[pIdx]) {
         const curPlayer = newLineup[pIdx];
         let rbi = action.rbi;
@@ -1611,13 +1742,23 @@ function baseReducer(state: GameState, action: ActionType): GameState {
           rbi: (curPlayer.rbi || 0) + (rbi || 0),
           runs: (curPlayer.runs || 0) + (runs || 0)
         };
+
+        paRecord = createPlateAppearanceRecord(state, {
+          result: action.result,
+          rbi: rbi || 0,
+          runs: runs || 0,
+          targetTeam: action.team,
+          targetPlayerIndex: pIdx
+        });
       }
       return {
         ...state,
         [teamKey]: {
           ...teamObj,
           lineup: newLineup
-        }
+        },
+        playByPlay: paRecord ? [...(state.playByPlay || []), paRecord] : state.playByPlay,
+        currentPaEvents: []
       };
     }
 
@@ -1654,7 +1795,9 @@ function baseReducer(state: GameState, action: ActionType): GameState {
           ...state.homeTeam,
           lineup: state.homeTeam.lineup.map(p => ({ ...p, atBats: [] })),
           bench: state.homeTeam.bench.map(p => ({ ...p, atBats: [] }))
-        }
+        },
+        playByPlay: [],
+        currentPaEvents: []
       };
     }
 
@@ -1692,6 +1835,8 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         return {
           ...INITIAL_STATE,
           ...action.state,
+          playByPlay: action.state.playByPlay ?? state.playByPlay ?? [],
+          currentPaEvents: action.state.currentPaEvents ?? state.currentPaEvents ?? [],
           pitcher: action.state.pitcher ?? INITIAL_STATE.pitcher,
           currentPitch: action.state.currentPitch ?? INITIAL_STATE.currentPitch,
           timer: action.state.timer ?? INITIAL_STATE.timer,
@@ -1712,6 +1857,25 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         };
       }
       return state;
+
+    case 'ADD_PLAY_BY_PLAY_RECORD':
+      return {
+        ...state,
+        playByPlay: [...(state.playByPlay || []), action.record]
+      };
+
+    case 'DELETE_PLAY_BY_PLAY_RECORD':
+      return {
+        ...state,
+        playByPlay: (state.playByPlay || []).filter(r => r.id !== action.id)
+      };
+
+    case 'CLEAR_PLAY_BY_PLAY':
+      return {
+        ...state,
+        playByPlay: [],
+        currentPaEvents: []
+      };
 
     default:
       return state;
