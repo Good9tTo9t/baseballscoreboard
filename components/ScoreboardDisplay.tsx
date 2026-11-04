@@ -3,7 +3,7 @@ import { motion, AnimatePresence, type Variants } from 'motion/react';
 import { GameState, ActionType, Team, Player } from '../types';
 import { getPitcherCount } from '../reducer';
 import { Diamond } from './Diamond';
-import { Timer, Plus, Minus, GripVertical, ArrowDown, ArrowUp, RotateCcw } from 'lucide-react';
+import { Timer, Plus, Minus, GripVertical, ArrowDown, ArrowUp, RotateCcw, Eye, EyeOff } from 'lucide-react';
 import { AutoScalingText } from './AutoScalingText';
 import { AutoCondenseText } from './AutoCondenseText';
 import {
@@ -2041,8 +2041,11 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
         const deltaX = (moveClientX - startX) / containerScale;
         const deltaY = (moveClientY - startY) / containerScale;
         
-        dispatch({ type: 'UPDATE_META', field: 'broadcastMarginX', value: Math.round(startMarginX + deltaX) });
-        dispatch({ type: 'UPDATE_META', field: 'broadcastMarginY', value: Math.max(0, Math.round(startMarginY - deltaY)) }); // Subtract because bottom is anchored
+        const clampedX = Math.max(0, Math.min(1920 - 150, Math.round(startMarginX + deltaX)));
+        const clampedY = Math.max(0, Math.min(1080 - 100, Math.round(startMarginY - deltaY)));
+        
+        dispatch({ type: 'UPDATE_META', field: 'broadcastMarginX', value: clampedX });
+        dispatch({ type: 'UPDATE_META', field: 'broadcastMarginY', value: clampedY });
       };
 
       const onUp = () => {
@@ -2180,6 +2183,19 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
       }
     };
 
+    // Safe coordinates & scale calculation to guarantee scoreboard stays visible inside 1920x1080 canvas
+    const rawMarginX = typeof state.meta.broadcastMarginX === 'number' && !isNaN(state.meta.broadcastMarginX)
+      ? state.meta.broadcastMarginX
+      : 20;
+    const rawMarginY = typeof state.meta.broadcastMarginY === 'number' && !isNaN(state.meta.broadcastMarginY)
+      ? state.meta.broadcastMarginY
+      : 20;
+    const safeScale = typeof state.meta.broadcastScale === 'number' && !isNaN(state.meta.broadcastScale) && state.meta.broadcastScale >= 0.2
+      ? Math.min(2.5, state.meta.broadcastScale)
+      : 1.0;
+    const safeMarginX = Math.max(0, Math.min(1920 - 150, rawMarginX));
+    const safeMarginY = Math.max(0, Math.min(1080 - 100, rawMarginY));
+
     return (
       <div 
         className="w-full h-full relative pointer-events-none overflow-hidden select-none broadcast-container"
@@ -2187,6 +2203,30 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
         onTouchMove={handleBroadcastTouchMove}
         onTouchEnd={handleBroadcastTouchEnd}
       >
+        {/* Prompt when broadcast scoreboard is hidden so user never gets lost */}
+        {state.meta.broadcastVisible === false && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-auto bg-black/40 backdrop-blur-xs">
+            <div className="flex flex-col items-center gap-3 p-5 rounded-2xl bg-slate-900/95 border-2 border-amber-500/80 shadow-2xl text-center max-w-sm animate-in zoom-in-95">
+              <EyeOff size={32} className="text-amber-400" />
+              <div>
+                <div className="text-sm font-bold text-white">
+                  {language === 'zh' ? '轉播計分板目前處於「隱藏」狀態' : 'Broadcast Scoreboard is Hidden'}
+                </div>
+                <div className="text-xs text-slate-400 mt-1">
+                  {language === 'zh' ? '計分板目前被設定為隱藏，點擊下方按鈕即可恢復顯示。' : 'The scorebug is hidden. Click below to unhide.'}
+                </div>
+              </div>
+              <button
+                onClick={() => dispatch({ type: 'UPDATE_META', field: 'broadcastVisible', value: true })}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-lg cursor-pointer transition-all active:scale-95 flex items-center gap-1.5"
+              >
+                <Eye size={14} />
+                <span>{language === 'zh' ? '立即顯示轉播計分板' : 'Unhide Scoreboard'}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Mobile-Friendly Floating Broadcast Scaler: Always visible on mobile or adjustment mode, hidden in OBS overlay */}
         {!isObsMode && (
           <div className="absolute top-3 right-3 z-50 flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 px-2.5 py-1.5 rounded-xl shadow-2xl backdrop-blur-md text-xs font-bold text-white pointer-events-auto">
@@ -2215,6 +2255,19 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
             >
               100%
             </button>
+            <button 
+              onClick={() => {
+                dispatch({ type: 'UPDATE_META', field: 'broadcastMarginX', value: 20 });
+                dispatch({ type: 'UPDATE_META', field: 'broadcastMarginY', value: 20 });
+                dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: 1.0 });
+                dispatch({ type: 'UPDATE_META', field: 'broadcastVisible', value: true });
+              }}
+              className="px-2 py-1 text-[10px] text-amber-300 hover:text-white bg-slate-800 hover:bg-amber-600/80 rounded border border-amber-500/50 ml-0.5 active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
+              title={language === 'zh' ? '重置位置與縮放回左下角預設' : 'Reset Position & Scale to Bottom-Left'}
+            >
+              <RotateCcw size={11} />
+              <span>{language === 'zh' ? '重置位置' : 'Reset'}</span>
+            </button>
             <button
               onClick={() => dispatch({ type: 'TOGGLE_VISIBILITY', field: 'isAdjustmentMode' })}
               className={`px-2 py-1 text-[10px] rounded border transition-colors ml-1 ${
@@ -2233,9 +2286,9 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
         <div 
           className="absolute origin-bottom-left select-none pointer-events-auto"
           style={{ 
-            left: `${state.meta.broadcastMarginX ?? 20}px`,
-            bottom: `${state.meta.broadcastMarginY ?? 20}px`,
-            transform: `scale(${state.meta.broadcastScale ?? 1})`,
+            left: `${safeMarginX}px`,
+            bottom: `${safeMarginY}px`,
+            transform: `scale(${safeScale})`,
             transformOrigin: 'bottom left',
             zIndex: 40,
           }}

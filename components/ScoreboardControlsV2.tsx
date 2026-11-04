@@ -1375,6 +1375,25 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                   </button>
                 ))}
               </div>
+              {state.displayMode === 'broadcast' && (
+                <div className="flex items-center justify-between p-2 rounded-xl bg-orange-950/40 border border-orange-500/40 text-xs text-orange-200 mt-2">
+                  <span className="font-medium">{language === 'zh' ? '轉播版面已啟用' : 'Broadcast Active'}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      dispatch({ type: 'UPDATE_META', field: 'broadcastMarginX', value: 20 });
+                      dispatch({ type: 'UPDATE_META', field: 'broadcastMarginY', value: 20 });
+                      dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: 1.0 });
+                      dispatch({ type: 'UPDATE_META', field: 'broadcastVisible', value: true });
+                    }}
+                    className="px-2.5 py-1 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white font-bold rounded-lg shadow text-xs cursor-pointer flex items-center gap-1 active:scale-95 transition-all"
+                    title={language === 'zh' ? '若記分板被拖離畫面或消失，點此立即歸位至左下角預設位置' : 'Reset position if lost'}
+                  >
+                    <RotateCcw size={12} />
+                    <span>{language === 'zh' ? '歸位記分板' : 'Reset Position'}</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* RESTORED: Toggle Buttons for BSO, AVG/Stats, Pitcher, Batter, Timer */}

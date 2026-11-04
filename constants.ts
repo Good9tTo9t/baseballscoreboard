@@ -160,6 +160,16 @@ export const sanitizeGameState = (loadedState: any, fallbackState: GameState = I
     meta: {
       ...fallbackState.meta,
       ...(loadedState.meta || {}),
+      broadcastMarginX: typeof loadedState.meta?.broadcastMarginX === 'number' && !isNaN(loadedState.meta.broadcastMarginX)
+        ? Math.max(0, Math.min(1920 - 150, loadedState.meta.broadcastMarginX))
+        : (fallbackState.meta?.broadcastMarginX ?? 20),
+      broadcastMarginY: typeof loadedState.meta?.broadcastMarginY === 'number' && !isNaN(loadedState.meta.broadcastMarginY)
+        ? Math.max(0, Math.min(1080 - 100, loadedState.meta.broadcastMarginY))
+        : (fallbackState.meta?.broadcastMarginY ?? 20),
+      broadcastScale: typeof loadedState.meta?.broadcastScale === 'number' && !isNaN(loadedState.meta.broadcastScale) && loadedState.meta.broadcastScale >= 0.2
+        ? Math.min(2.5, loadedState.meta.broadcastScale)
+        : (fallbackState.meta?.broadcastScale ?? 1.0),
+      broadcastVisible: loadedState.meta?.broadcastVisible !== false,
     },
     playByPlay: Array.isArray(loadedState.playByPlay) ? loadedState.playByPlay : (fallbackState.playByPlay || []),
     currentPaEvents: Array.isArray(loadedState.currentPaEvents) ? loadedState.currentPaEvents : (fallbackState.currentPaEvents || [])

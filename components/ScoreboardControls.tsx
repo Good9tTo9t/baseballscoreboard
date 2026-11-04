@@ -1503,6 +1503,26 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                   </button>
                  </div>
 
+                 {state.displayMode === 'broadcast' && (
+                   <div className="flex items-center justify-between p-2 rounded-lg border border-orange-300 bg-orange-50 text-xs text-orange-950 mt-1 shadow-xs">
+                     <span className="font-medium">{language === 'zh' ? '轉播版面已啟用' : 'Broadcast Active'}</span>
+                     <button
+                       type="button"
+                       onClick={() => {
+                         dispatch({ type: 'UPDATE_META', field: 'broadcastMarginX', value: 20 });
+                         dispatch({ type: 'UPDATE_META', field: 'broadcastMarginY', value: 20 });
+                         dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: 1.0 });
+                         dispatch({ type: 'UPDATE_META', field: 'broadcastVisible', value: true });
+                       }}
+                       className="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white font-bold rounded shadow text-xs cursor-pointer flex items-center gap-1 active:scale-95 transition-all"
+                       title={language === 'zh' ? '若記分板被拖離畫面或消失，點此立即歸位至左下角預設位置' : 'Reset position if lost'}
+                     >
+                       <RotateCcw size={12} />
+                       <span>{language === 'zh' ? '歸位記分板' : 'Reset Position'}</span>
+                     </button>
+                   </div>
+                 )}
+
                 {/* Show/Hide Player Stat Toggle */}
                 <div className="grid grid-cols-2 gap-2">
                   <button 
