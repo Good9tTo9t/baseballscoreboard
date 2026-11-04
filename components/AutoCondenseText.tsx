@@ -70,19 +70,20 @@ export const AutoCondenseText: React.FC<AutoCondenseTextProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`w-full overflow-hidden flex items-center min-w-0 ${justify}`}
+      className={`w-full h-full overflow-hidden flex items-center min-w-0 ${justify}`}
     >
       <div
         style={{
           display: 'inline-flex',
           alignItems: 'center',
+          height: '100%',
           whiteSpace: 'nowrap',
           transform: scaleX < 1 ? `scaleX(${scaleX})` : undefined,
           transformOrigin: origin,
           width: 'max-content',
         }}
       >
-        <span ref={textRef} className={`whitespace-nowrap ${className}`} style={style}>
+        <span ref={textRef} className={`whitespace-nowrap flex items-center leading-none ${className}`} style={style}>
           {children ?? text}
         </span>
       </div>

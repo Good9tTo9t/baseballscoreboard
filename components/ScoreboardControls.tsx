@@ -1503,26 +1503,6 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                   </button>
                  </div>
 
-                 {state.displayMode === 'broadcast' && (
-                   <div className="flex items-center justify-between p-2 rounded-lg border border-orange-300 bg-orange-50 text-xs text-orange-950 mt-1 shadow-xs">
-                     <span className="font-medium">{language === 'zh' ? '轉播版面已啟用' : 'Broadcast Active'}</span>
-                     <button
-                       type="button"
-                       onClick={() => {
-                         dispatch({ type: 'UPDATE_META', field: 'broadcastMarginX', value: 20 });
-                         dispatch({ type: 'UPDATE_META', field: 'broadcastMarginY', value: 20 });
-                         dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: 1.0 });
-                         dispatch({ type: 'UPDATE_META', field: 'broadcastVisible', value: true });
-                       }}
-                       className="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white font-bold rounded shadow text-xs cursor-pointer flex items-center gap-1 active:scale-95 transition-all"
-                       title={language === 'zh' ? '若記分板被拖離畫面或消失，點此立即歸位至左下角預設位置' : 'Reset position if lost'}
-                     >
-                       <RotateCcw size={12} />
-                       <span>{language === 'zh' ? '歸位記分板' : 'Reset Position'}</span>
-                     </button>
-                   </div>
-                 )}
-
                 {/* Show/Hide Player Stat Toggle */}
                 <div className="grid grid-cols-2 gap-2">
                   <button 
@@ -1558,19 +1538,39 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
              
              <div className="mt-4 pt-4 border-t w-full">
                <h4 className="font-semibold text-gray-600 text-xs uppercase mb-2">{language === 'en' ? 'Broadcast Mode Settings' : language === 'zh' ? '轉播模式設定' : '配信モード設定'}</h4>
-               <button
-                 onClick={() => dispatch({ type: 'TOGGLE_ADJUSTMENT_MODE' })}
-                 className={`flex items-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors ${
-                   state.isAdjustmentMode 
-                     ? 'bg-blue-600 text-white shadow-inner' 
-                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
-                 }`}
-               >
-                 {state.isAdjustmentMode ? <Check size={16} /> : <Settings size={16} />}
-                 {state.isAdjustmentMode 
-                   ? (language === 'en' ? 'Finish Adjustment' : language === 'zh' ? '結束調整' : '調整終了') 
-                   : (language === 'en' ? 'Adjustment Mode' : language === 'zh' ? '調整模式' : '調整モード')}
-               </button>
+               <div className="flex items-center gap-2 flex-wrap">
+                 <button
+                   onClick={() => dispatch({ type: 'TOGGLE_ADJUSTMENT_MODE' })}
+                   className={`flex items-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors ${
+                     state.isAdjustmentMode 
+                       ? 'bg-blue-600 text-white shadow-inner' 
+                       : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
+                   }`}
+                 >
+                   {state.isAdjustmentMode ? <Check size={16} /> : <Settings size={16} />}
+                   {state.isAdjustmentMode 
+                     ? (language === 'en' ? 'Finish Adjustment' : language === 'zh' ? '結束調整' : '調整終了') 
+                     : (language === 'en' ? 'Adjustment Mode' : language === 'zh' ? '調整模式' : '調整モード')}
+                 </button>
+
+                 <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-orange-300 bg-orange-50 text-xs text-orange-950 shadow-xs">
+                   <span className="font-medium">{language === 'zh' ? '轉播版面已啟用' : 'Broadcast Active'}</span>
+                   <button
+                     type="button"
+                     onClick={() => {
+                       dispatch({ type: 'UPDATE_META', field: 'broadcastMarginX', value: 20 });
+                       dispatch({ type: 'UPDATE_META', field: 'broadcastMarginY', value: 20 });
+                       dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: 1.0 });
+                       dispatch({ type: 'UPDATE_META', field: 'broadcastVisible', value: true });
+                     }}
+                     className="px-2 py-0.5 bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white font-bold rounded shadow-xs text-xs cursor-pointer flex items-center gap-1 active:scale-95 transition-all"
+                     title={language === 'zh' ? '若記分板被拖離畫面或消失，點此立即歸位至左下角預設位置' : 'Reset position if lost'}
+                   >
+                     <RotateCcw size={12} />
+                     <span>{language === 'zh' ? '歸位記分板' : 'Reset Position'}</span>
+                   </button>
+                 </div>
+               </div>
                {state.isAdjustmentMode && (
                   <div className="mt-3 space-y-3">
                      {/* Font Sizes Section */}

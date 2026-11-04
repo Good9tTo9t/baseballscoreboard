@@ -374,19 +374,20 @@ const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({
                 )}
                 <div className="flex-1 min-w-0 overflow-hidden flex items-center">
                     <AutoCondenseText 
-                        text={p.name} 
                         className={`${nameTextSize} leading-tight ${
                             isActive ? "text-white font-black" : "text-slate-200"
                         }`} 
                         align="left" 
-                    />
-                    {p.number && (
-                        <span className={`ml-1 ${numberTextSize} shrink-0 ${
-                            isActive ? "text-blue-200 font-bold" : "text-slate-400"
-                        }`}>
-                            #{p.number}
-                        </span>
-                    )}
+                    >
+                        <span>{p.name}</span>
+                        {p.number && (
+                            <span className={`ml-1 ${numberTextSize} font-mono shrink-0 ${
+                                isActive ? "text-blue-200 font-bold" : "text-slate-400"
+                            }`}>
+                                #{p.number}
+                            </span>
+                        )}
+                    </AutoCondenseText>
                 </div>
             </div>
 
@@ -560,11 +561,16 @@ const LineupColumn = ({
                             </span>
                             <div className="flex-1 min-w-0 overflow-hidden flex items-center">
                                 <AutoCondenseText 
-                                    text={team.pitcher.name} 
                                     className={`${scaleMode === 'large' ? "text-xs sm:text-base lg:text-lg font-black" : scaleMode === 'compact' ? "text-[10px] font-bold" : "text-xs sm:text-sm font-bold"} leading-tight text-slate-200`} 
                                     align="left" 
-                                />
-                                {team.pitcher.number && <span className={`ml-1 ${scaleMode === 'large' ? "text-xs sm:text-sm text-slate-400 font-semibold" : "text-[9px] sm:text-[10px] text-slate-400"} shrink-0`}>#{team.pitcher.number}</span>}
+                                >
+                                    <span>{team.pitcher.name}</span>
+                                    {team.pitcher.number && (
+                                        <span className={`ml-1 ${scaleMode === 'large' ? "text-xs sm:text-sm text-slate-400 font-semibold" : "text-[9px] sm:text-[10px] text-slate-400"} font-mono shrink-0`}>
+                                            #{team.pitcher.number}
+                                        </span>
+                                    )}
+                                </AutoCondenseText>
                             </div>
                         </div>
                     </div>
@@ -1356,22 +1362,25 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                         </div>
 
                         {/* Middle: Player Name & Number */}
-                        <div className="flex items-center gap-1.5 min-w-0 my-0.5">
+                        <div className="flex items-center min-w-0 my-0.5">
                             <div className="flex-1 min-w-0 overflow-hidden">
                                 <AutoCondenseText 
-                                    text={state.isTop 
-                                        ? `${state.awayTeam.currentBatterIndex + 1}. ${awayBatter.name}`
-                                        : awayPitcher.name || '---'
-                                    } 
                                     className="text-lg sm:text-xl lg:text-2xl font-black text-white" 
                                     align="left" 
-                                />
+                                >
+                                    <span>
+                                        {state.isTop 
+                                            ? `${state.awayTeam.currentBatterIndex + 1}. ${awayBatter.name}`
+                                            : awayPitcher.name || '---'
+                                        }
+                                    </span>
+                                    {(state.isTop ? awayBatter.number : awayPitcher.number) && (
+                                        <span className="text-sm sm:text-base text-slate-300 font-bold font-mono ml-1.5 shrink-0">
+                                            #{state.isTop ? awayBatter.number : awayPitcher.number}
+                                        </span>
+                                    )}
+                                </AutoCondenseText>
                             </div>
-                            {(state.isTop ? awayBatter.number : awayPitcher.number) && (
-                                <span className="text-sm sm:text-base text-slate-300 font-bold shrink-0">
-                                    #{state.isTop ? awayBatter.number : awayPitcher.number}
-                                </span>
-                            )}
                         </div>
 
                         {/* Bottom: Underneath Batter (At-Bats) OR Underneath Pitcher (Stats) */}
@@ -1459,22 +1468,25 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                         </div>
 
                         {/* Middle: Player Name & Number */}
-                        <div className="flex items-center gap-1.5 min-w-0 my-0.5">
+                        <div className="flex items-center min-w-0 my-0.5">
                             <div className="flex-1 min-w-0 overflow-hidden">
                                 <AutoCondenseText 
-                                    text={!state.isTop 
-                                        ? `${state.homeTeam.currentBatterIndex + 1}. ${homeBatter.name}`
-                                        : homePitcher.name || '---'
-                                    } 
                                     className="text-lg sm:text-xl lg:text-2xl font-black text-white" 
                                     align="left" 
-                                />
+                                >
+                                    <span>
+                                        {!state.isTop 
+                                            ? `${state.homeTeam.currentBatterIndex + 1}. ${homeBatter.name}`
+                                            : homePitcher.name || '---'
+                                        }
+                                    </span>
+                                    {(!state.isTop ? homeBatter.number : homePitcher.number) && (
+                                        <span className="text-sm sm:text-base text-slate-300 font-bold font-mono ml-1.5 shrink-0">
+                                            #{!state.isTop ? homeBatter.number : homePitcher.number}
+                                        </span>
+                                    )}
+                                </AutoCondenseText>
                             </div>
-                            {(!state.isTop ? homeBatter.number : homePitcher.number) && (
-                                <span className="text-sm sm:text-base text-slate-300 font-bold shrink-0">
-                                    #{!state.isTop ? homeBatter.number : homePitcher.number}
-                                </span>
-                            )}
                         </div>
 
                         {/* Bottom: Underneath Batter (At-Bats) OR Underneath Pitcher (Stats) */}
@@ -1986,8 +1998,8 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
       const numberStyle = state.meta.broadcastPlayerNumberStyle || "normal";
       if (!hasNumber || numberStyle === "hidden") return player.name;
       return (
-        <span>
-          {player.name}
+        <span className="inline-flex items-center leading-none">
+          <span>{player.name}</span>
           <span className={numberStyle === "gray" ? "text-slate-400 ml-1.5" : "ml-1.5"}>
             #{player.number}
           </span>
@@ -2612,9 +2624,9 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     />
                   )}
                   {isAwayBatter ? (
-                    <span className="shrink-0 text-slate-400 font-bold inline-block text-center w-[1.125rem]">{state.awayTeam.currentBatterIndex + 1}.</span>
+                    <span className="shrink-0 text-slate-400 font-bold flex items-center justify-center text-center w-[1.125rem] h-full leading-none">{state.awayTeam.currentBatterIndex + 1}.</span>
                   ) : (
-                    <span className="shrink-0 text-slate-400 font-bold inline-block text-center w-[1.125rem]">P</span>
+                    <span className="shrink-0 text-slate-400 font-bold flex items-center justify-center text-center w-[1.125rem] h-full leading-none">P</span>
                   )}
                   <AnimatePresence mode="wait">
                     {isAwayVisible && (
@@ -2626,9 +2638,9 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                       transition={{ duration: 0.3 }}
                       className="flex-1 min-w-0 flex items-center h-full justify-between gap-2"
                     >
-                      <div className="flex-1 min-w-0 overflow-hidden flex items-center">
+                      <div className="flex-1 min-w-0 overflow-hidden flex items-center h-full">
                         <AutoCondenseText 
-                          className="leading-tight py-0.5 whitespace-nowrap font-bold inline-block" 
+                          className="leading-none whitespace-nowrap font-bold flex items-center" 
                           style={{ fontSize: `${state.meta.broadcastPlayerNameSize ?? 20}px` }} 
                         >
                           {getPlayerContent(awayPlayer)}
@@ -2975,9 +2987,9 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     />
                   )}
                   {!isAwayBatter ? (
-                    <span className="shrink-0 text-slate-400 font-bold inline-block text-center w-[1.125rem]">{state.homeTeam.currentBatterIndex + 1}.</span>
+                    <span className="shrink-0 text-slate-400 font-bold flex items-center justify-center text-center w-[1.125rem] h-full leading-none">{state.homeTeam.currentBatterIndex + 1}.</span>
                   ) : (
-                    <span className="shrink-0 text-slate-400 font-bold inline-block text-center w-[1.125rem]">P</span>
+                    <span className="shrink-0 text-slate-400 font-bold flex items-center justify-center text-center w-[1.125rem] h-full leading-none">P</span>
                   )}
                   <AnimatePresence mode="wait">
                     {isHomeVisible && (
@@ -2989,9 +3001,9 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                       transition={{ duration: 0.3 }}
                       className="flex-1 min-w-0 flex items-center h-full justify-between gap-2"
                     >
-                      <div className="flex-1 min-w-0 overflow-hidden flex items-center">
+                      <div className="flex-1 min-w-0 overflow-hidden flex items-center h-full">
                         <AutoCondenseText 
-                          className="leading-tight py-0.5 whitespace-nowrap font-bold inline-block" 
+                          className="leading-none whitespace-nowrap font-bold flex items-center" 
                           style={{ fontSize: `${state.meta.broadcastPlayerNameSize ?? 20}px` }} 
                         >
                           {getPlayerContent(homePlayer)}

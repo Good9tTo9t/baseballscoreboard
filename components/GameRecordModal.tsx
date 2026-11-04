@@ -1690,27 +1690,29 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                                   key={`${prevP.id || idx}-prev-${prevIdx}`}
                                   className="border-b border-slate-800/40 font-mono text-center hover:bg-slate-800/30 transition-colors bg-slate-900/30 text-slate-300"
                                 >
-                                  <td className="py-2 px-2 text-left font-bold text-slate-300">
+                                  <td className="py-2 px-2 text-left font-bold text-slate-300 align-middle">
                                     {isFirstStarter ? `${idx + 1}.` : ''}
                                   </td>
-                                  <td className="py-2 px-2 text-slate-400 font-bold">
+                                  <td className="py-2 px-2 text-slate-400 font-bold align-middle">
                                     #{prevP.number || '--'}
                                   </td>
-                                  <td className="py-2 px-3 text-left font-sans font-bold text-slate-200 flex items-center gap-1.5">
-                                    <span>{prevP.name}</span>
-                                    <span className="text-[10px] px-1 py-0.2 rounded bg-slate-800 text-slate-400 font-mono border border-slate-700">先發</span>
+                                  <td className="py-2 px-3 text-left font-sans font-bold text-slate-200 align-middle">
+                                    <div className="inline-flex items-center gap-1.5">
+                                      <span>{prevP.name}</span>
+                                      <span className="text-[10px] px-1 py-0.2 rounded bg-slate-800 text-slate-400 font-mono border border-slate-700">先發</span>
+                                    </div>
                                   </td>
-                                  <td className="py-2 px-2 text-slate-400 font-sans font-bold">
+                                  <td className="py-2 px-2 text-slate-400 font-sans font-bold align-middle">
                                     {prevP.position || 'DH'}
                                   </td>
-                                  <td className="py-2 px-2 font-bold text-slate-300">{sPrev.ab}</td>
-                                  <td className="py-2 px-2 font-bold text-slate-300">{sPrev.r}</td>
-                                  <td className="py-2 px-2 font-bold text-yellow-400">{sPrev.h}</td>
-                                  <td className="py-2 px-2 font-bold text-slate-300">{sPrev.rbi}</td>
-                                  <td className="py-2 px-2 font-bold text-sky-400">{sPrev.bb}</td>
-                                  <td className="py-2 px-2 font-bold text-rose-400">{sPrev.so}</td>
-                                  <td className="py-2 px-3 font-bold text-amber-300">{sPrev.avg}</td>
-                                  <td className="py-2 px-3 text-left">
+                                  <td className="py-2 px-2 font-bold text-slate-300 align-middle">{sPrev.ab}</td>
+                                  <td className="py-2 px-2 font-bold text-slate-300 align-middle">{sPrev.r}</td>
+                                  <td className="py-2 px-2 font-bold text-yellow-400 align-middle">{sPrev.h}</td>
+                                  <td className="py-2 px-2 font-bold text-slate-300 align-middle">{sPrev.rbi}</td>
+                                  <td className="py-2 px-2 font-bold text-sky-400 align-middle">{sPrev.bb}</td>
+                                  <td className="py-2 px-2 font-bold text-rose-400 align-middle">{sPrev.so}</td>
+                                  <td className="py-2 px-3 font-bold text-amber-300 align-middle">{sPrev.avg}</td>
+                                  <td className="py-2 px-3 text-left align-middle">
                                     <div className="flex flex-wrap items-center gap-1.5 font-sans">
                                       {sPrev.atBats.length === 0 ? (
                                         <span className="text-slate-500 text-xs italic">無打席</span>
@@ -1754,31 +1756,33 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                                 isCurrentBatter ? 'bg-blue-950/40 border-l-2 border-l-blue-400' : isSub ? 'bg-amber-950/20' : ''
                               }`}
                             >
-                              <td className="py-2 px-2 text-left font-bold text-slate-300">
+                              <td className="py-2 px-2 text-left font-bold text-slate-300 align-middle">
                                 {!isSub ? `${idx + 1}.` : <span className="text-amber-400/80 font-black pl-1.5">↳</span>}
                               </td>
-                              <td className="py-2 px-2 text-slate-400 font-bold">
+                              <td className="py-2 px-2 text-slate-400 font-bold align-middle">
                                 #{p.number || '--'}
                               </td>
-                              <td className="py-2 px-3 text-left font-sans font-bold text-white flex items-center gap-1.5">
-                                <span className={isSub ? 'text-amber-300' : ''}>{p.name}</span>
-                                {isSub && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 font-mono">
-                                    代打
-                                  </span>
-                                )}
+                              <td className="py-2 px-3 text-left font-sans font-bold text-white align-middle">
+                                <div className="inline-flex items-center gap-1.5">
+                                  <span className={isSub ? 'text-amber-300' : ''}>{p.name}</span>
+                                  {isSub && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 font-mono">
+                                      代打
+                                    </span>
+                                  )}
+                                </div>
                               </td>
-                              <td className="py-2 px-2 text-slate-400 font-sans font-bold">
+                              <td className="py-2 px-2 text-slate-400 font-sans font-bold align-middle">
                                 {p.position || (isSub ? 'PH' : 'DH')}
                               </td>
-                              <td className="py-2 px-2 font-bold text-slate-200">{s.ab}</td>
-                              <td className="py-2 px-2 font-bold text-slate-200">{s.r}</td>
-                              <td className="py-2 px-2 font-bold text-yellow-400">{s.h}</td>
-                              <td className="py-2 px-2 font-bold text-slate-200">{s.rbi}</td>
-                              <td className="py-2 px-2 font-bold text-sky-400">{s.bb}</td>
-                              <td className="py-2 px-2 font-bold text-rose-400">{s.so}</td>
-                              <td className="py-2 px-3 font-bold text-amber-300">{s.avg}</td>
-                              <td className="py-2 px-3 text-left">
+                              <td className="py-2 px-2 font-bold text-slate-200 align-middle">{s.ab}</td>
+                              <td className="py-2 px-2 font-bold text-slate-200 align-middle">{s.r}</td>
+                              <td className="py-2 px-2 font-bold text-yellow-400 align-middle">{s.h}</td>
+                              <td className="py-2 px-2 font-bold text-slate-200 align-middle">{s.rbi}</td>
+                              <td className="py-2 px-2 font-bold text-sky-400 align-middle">{s.bb}</td>
+                              <td className="py-2 px-2 font-bold text-rose-400 align-middle">{s.so}</td>
+                              <td className="py-2 px-3 font-bold text-amber-300 align-middle">{s.avg}</td>
+                              <td className="py-2 px-3 text-left align-middle">
                                 <div className="flex flex-wrap items-center gap-1.5 font-sans">
                                   {s.atBats.length === 0 ? (
                                     <span className="text-slate-500 text-xs italic">無打席</span>
