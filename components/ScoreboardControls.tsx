@@ -1553,8 +1553,7 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                      : (language === 'en' ? 'Adjustment Mode' : language === 'zh' ? '調整模式' : '調整モード')}
                  </button>
 
-                 <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-orange-300 bg-orange-50 text-xs text-orange-950 shadow-xs">
-                   <span className="font-medium">{language === 'zh' ? '轉播版面已啟用' : 'Broadcast Active'}</span>
+                 {state.isAdjustmentMode && (
                    <button
                      type="button"
                      onClick={() => {
@@ -1563,13 +1562,13 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                        dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: 1.0 });
                        dispatch({ type: 'UPDATE_META', field: 'broadcastVisible', value: true });
                      }}
-                     className="px-2 py-0.5 bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white font-bold rounded shadow-xs text-xs cursor-pointer flex items-center gap-1 active:scale-95 transition-all"
+                     className="px-3 py-2 bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white font-medium rounded text-sm cursor-pointer flex items-center gap-1.5 shadow-xs transition-colors active:scale-95"
                      title={language === 'zh' ? '若記分板被拖離畫面或消失，點此立即歸位至左下角預設位置' : 'Reset position if lost'}
                    >
-                     <RotateCcw size={12} />
+                     <RotateCcw size={14} />
                      <span>{language === 'zh' ? '歸位記分板' : 'Reset Position'}</span>
                    </button>
-                 </div>
+                 )}
                </div>
                {state.isAdjustmentMode && (
                   <div className="mt-3 space-y-3">

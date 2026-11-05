@@ -381,7 +381,7 @@ const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({
                     >
                         <span>{p.name}</span>
                         {p.number && (
-                            <span className={`ml-1 ${numberTextSize} font-mono shrink-0 ${
+                            <span className={`ml-2 sm:ml-2.5 ${numberTextSize} font-mono shrink-0 ${
                                 isActive ? "text-blue-200 font-bold" : "text-slate-400"
                             }`}>
                                 #{p.number}
@@ -566,7 +566,7 @@ const LineupColumn = ({
                                 >
                                     <span>{team.pitcher.name}</span>
                                     {team.pitcher.number && (
-                                        <span className={`ml-1 ${scaleMode === 'large' ? "text-xs sm:text-sm text-slate-400 font-semibold" : "text-[9px] sm:text-[10px] text-slate-400"} font-mono shrink-0`}>
+                                        <span className={`ml-2 sm:ml-2.5 ${scaleMode === 'large' ? "text-xs sm:text-sm text-slate-400 font-semibold" : "text-[9px] sm:text-[10px] text-slate-400"} font-mono shrink-0`}>
                                             #{team.pitcher.number}
                                         </span>
                                     )}
@@ -1375,7 +1375,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                                         }
                                     </span>
                                     {(state.isTop ? awayBatter.number : awayPitcher.number) && (
-                                        <span className="text-sm sm:text-base text-slate-300 font-bold font-mono ml-1.5 shrink-0">
+                                        <span className="text-sm sm:text-base text-slate-300 font-bold font-mono ml-2.5 sm:ml-3 shrink-0">
                                             #{state.isTop ? awayBatter.number : awayPitcher.number}
                                         </span>
                                     )}
@@ -1481,7 +1481,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                                         }
                                     </span>
                                     {(!state.isTop ? homeBatter.number : homePitcher.number) && (
-                                        <span className="text-sm sm:text-base text-slate-300 font-bold font-mono ml-1.5 shrink-0">
+                                        <span className="text-sm sm:text-base text-slate-300 font-bold font-mono ml-2.5 sm:ml-3 shrink-0">
                                             #{!state.isTop ? homeBatter.number : homePitcher.number}
                                         </span>
                                     )}

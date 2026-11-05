@@ -2308,15 +2308,20 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                                   <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                                     打席結果
                                   </div>
-                                  <div className="flex items-center gap-1">
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-black border shadow-sm ${getOutcomeBadgeStyle(pa.result)}`}>
-                                      {pa.result}
-                                    </span>
-                                    {pa.rbi > 0 && (
-                                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                                        +{pa.rbi}打點
+                                  <div className="flex items-center justify-end">
+                                    <div className="relative inline-flex items-center">
+                                      <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-black border shadow-sm ${getOutcomeBadgeStyle(pa.result)}`}>
+                                        {pa.result}
                                       </span>
-                                    )}
+                                      {pa.rbi > 0 && (
+                                        <span 
+                                          className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] px-0.5 rounded-[3px] bg-red-600 text-white font-mono font-black text-[9px] leading-none flex items-center justify-center shadow border border-red-300 z-10 select-none pointer-events-none"
+                                          title={`打點: ${pa.rbi}`}
+                                        >
+                                          {pa.rbi}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
