@@ -227,16 +227,26 @@ const playBeep = (freq: number, duration: number, type: 'sine' | 'square' | 'tri
 // Helper for Score Animation
 const AnimatedScore = ({ score, color, sizeClass, disableScale, style }: { score: number, color?: string, sizeClass?: string, disableScale?: boolean, style?: React.CSSProperties }) => {
     const [animate, setAnimate] = useState(false);
+    const prevScoreRef = useRef(score);
+    const isFirstMount = useRef(true);
 
     useEffect(() => {
-        setAnimate(true);
-        const timer = setTimeout(() => setAnimate(false), 500); // 500ms flash
-        return () => clearTimeout(timer);
+        if (isFirstMount.current) {
+            isFirstMount.current = false;
+            prevScoreRef.current = score;
+            return;
+        }
+        if (prevScoreRef.current !== score) {
+            prevScoreRef.current = score;
+            setAnimate(true);
+            const timer = setTimeout(() => setAnimate(false), 500); // 500ms flash
+            return () => clearTimeout(timer);
+        }
     }, [score]);
 
     return (
         <div 
-          className={`flex items-center justify-center w-full h-full ${sizeClass || 'text-[5rem] sm:text-[9rem] lg:text-[12rem] xl:text-[17rem]'} font-bold text-center cursor-pointer select-none transition-all drop-shadow-lg leading-none rounded-lg ${animate ? (disableScale ? 'scale-110' : 'scale-150') + ' duration-150 z-50' : 'duration-300'}`}
+          className={`flex items-center justify-center w-full h-full ${sizeClass || 'text-[5rem] sm:text-[9rem] lg:text-[12rem] xl:text-[17rem]'} font-bold text-center cursor-pointer select-none transition-all drop-shadow-lg leading-none rounded-lg ${animate ? (disableScale ? 'scale-110' : 'scale-150') + ' duration-150 z-50' : 'duration-300'} transform-gpu`}
           style={{ 
              color: animate ? '#fde047' : 'white', // Yellow flash
              textShadow: animate ? `0 0 40px ${color || '#fde047'}` : 'none',
@@ -402,8 +412,7 @@ const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({
 const AnimatedIndicator: React.FC<AnimatedIndicatorProps> = ({ active, colorClass, shadowClass, baseClass, disableAnimation = false, disableGlow = false }) => {
     return (
         <div 
-            key={active ? "active" : "inactive"}
-            className={`${baseClass} ${active ? `${colorClass} ${disableGlow ? "" : shadowClass} border-transparent ${disableAnimation ? "" : "animate-pop-in"}` : "bg-slate-900 border-slate-600"} transition-colors duration-200`} 
+            className={`${baseClass} ${active ? `${colorClass} ${disableGlow ? "" : shadowClass} border-transparent` : "bg-slate-900 border-slate-600"} transition-all duration-150 transform-gpu`} 
         />
     );
 };

@@ -21,7 +21,7 @@ export const Diamond: React.FC<DiamondProps> = ({ bases, onToggle, className = "
   };
 
   const baseClass = (active: boolean) => 
-    `w-12 h-12 lg:w-16 lg:h-16 border-2 border-white transform rotate-45 transition-transform duration-150 cursor-pointer shadow-lg ${active ? (disableScale ? '' : 'scale-110') : 'bg-white/10 hover:bg-white/30'}`;
+    `w-12 h-12 lg:w-16 lg:h-16 border-2 border-white transform-gpu rotate-45 transition-all duration-150 cursor-pointer shadow-lg ${active ? (disableScale ? '' : 'scale-110') : 'bg-white/10 hover:bg-white/30'}`;
 
   return (
     <div className={`relative w-[160px] h-[114px] lg:w-[224px] lg:h-[157px] ${className}`}>

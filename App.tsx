@@ -241,7 +241,8 @@ export const App: React.FC = () => {
       const refW = mode === 'broadcast' ? 1920 : 960;
       const refH = mode === 'broadcast' ? 1080 : 540;
       const s = Math.min(clientWidth / refW, clientHeight / refH);
-      setPreviewScale(Math.max(0.1, Math.min(1.5, s)));
+      const targetScale = Math.max(0.1, Math.min(1.5, Math.round(s * 1000) / 1000));
+      setPreviewScale(prev => (Math.abs(prev - targetScale) > 0.002 ? targetScale : prev));
     };
     updateScale();
     const ro = new ResizeObserver(updateScale);
@@ -282,7 +283,8 @@ export const App: React.FC = () => {
       const refW = mode === 'broadcast' ? 1920 : 960;
       const refH = mode === 'broadcast' ? 1080 : 540;
       const s = Math.min((w - 12) / refW, (h - 12) / refH);
-      setFullscreenScale(Math.max(0.1, s));
+      const targetScale = Math.max(0.1, Math.round(s * 1000) / 1000);
+      setFullscreenScale(prev => (Math.abs(prev - targetScale) > 0.002 ? targetScale : prev));
     };
 
     updateFsScale();
@@ -328,6 +330,27 @@ export const App: React.FC = () => {
     channelRef.current = channel;
 
     const handleSyncState = (newState: GameState, newLanguage?: "en" | "zh" | "ja") => {
+      if (stateRef.current) {
+        const curr = stateRef.current;
+        const isIdentical = 
+          curr.balls === newState.balls &&
+          curr.strikes === newState.strikes &&
+          curr.outs === newState.outs &&
+          curr.inning === newState.inning &&
+          curr.isTop === newState.isTop &&
+          curr.bases[0] === newState.bases[0] &&
+          curr.bases[1] === newState.bases[1] &&
+          curr.bases[2] === newState.bases[2] &&
+          curr.awayTeam.score === newState.awayTeam.score &&
+          curr.homeTeam.score === newState.homeTeam.score &&
+          curr.displayMode === newState.displayMode &&
+          JSON.stringify(curr) === JSON.stringify(newState);
+
+        if (isIdentical) {
+          if (newLanguage && newLanguage !== language) setLanguage(newLanguage);
+          return;
+        }
+      }
       // Direct dispatch doesn't set isLocalAction, so it won't be re-broadcasted
       dispatch({ type: 'REPLACE_STATE', state: newState });
       if (newLanguage) setLanguage(newLanguage);
@@ -979,8 +1002,7 @@ export const App: React.FC = () => {
                 : (useBetaControls ? 'w-full md:w-[var(--left-width)] h-[35vh] sm:h-[42vh] md:h-full shrink-0' : 'w-[var(--left-width)] h-full')
             }`}
             style={{ 
-              '--left-width': isDisplayMode ? '100%' : `calc(${100 - controlPanelWidth}% - 4px)`,
-              ...(isDisplayMode ? { zoom: '150%' } : {})
+              '--left-width': isDisplayMode ? '100%' : `calc(${100 - controlPanelWidth}% - 4px)`
             } as React.CSSProperties}
           >
               
