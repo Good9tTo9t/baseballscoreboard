@@ -591,7 +591,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
               className="w-full border-2 border-slate-300 p-1.5 rounded text-sm font-bold text-black bg-white box-border min-w-0" 
               value={draft.name}
               onChange={(e) => updateDraft('name', e.target.value)}
-              placeholder="Team (Abbr)"
+              placeholder={language === 'zh' ? '隊伍名稱' : language === 'ja' ? 'チーム名' : 'Team'}
             />
             {draft.logoUrl && (
               <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-700 select-none py-0.5">

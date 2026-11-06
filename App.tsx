@@ -56,7 +56,55 @@ export const App: React.FC = () => {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isGameRecordModalOpen, setIsGameRecordModalOpen] = useState(false);
   const [shortcuts, setShortcuts] = useState<ShortcutMap>(DEFAULT_SHORTCUTS);
-  const [language, setLanguage] = useState<'en' | 'zh' | 'ja'>('zh');
+  const [consoleLanguage, setConsoleLanguage] = useState<'en' | 'zh' | 'ja'>(() => {
+    try {
+      const saved = localStorage.getItem('scoreboard_console_language');
+      if (saved === 'en' || saved === 'zh' || saved === 'ja') return saved;
+      const oldSaved = localStorage.getItem('scoreboard_language');
+      if (oldSaved === 'en' || oldSaved === 'zh' || oldSaved === 'ja') return oldSaved;
+    } catch {}
+    return 'zh';
+  });
+  const [scoreboardLanguage, setScoreboardLanguage] = useState<'en' | 'zh' | 'ja'>(() => {
+    try {
+      const saved = localStorage.getItem('scoreboard_display_language');
+      if (saved === 'en' || saved === 'zh' || saved === 'ja') return saved;
+      const oldSaved = localStorage.getItem('scoreboard_language');
+      if (oldSaved === 'en' || oldSaved === 'zh' || oldSaved === 'ja') return oldSaved;
+    } catch {}
+    return 'zh';
+  });
+
+  const handleConsoleLanguageChange = (newLang: 'en' | 'zh' | 'ja') => {
+    setConsoleLanguage(newLang);
+    try {
+      localStorage.setItem('scoreboard_console_language', newLang);
+    } catch {}
+  };
+
+  const handleScoreboardLanguageChange = (newLang: 'en' | 'zh' | 'ja') => {
+    setScoreboardLanguage(newLang);
+    try {
+      localStorage.setItem('scoreboard_display_language', newLang);
+    } catch {}
+    if (channelRef.current) {
+      channelRef.current.postMessage({ 
+        type: 'SYNC_STATE', 
+        state: stateRef.current, 
+        scoreboardLanguage: newLang,
+        language: newLang 
+      });
+    }
+    if (displayWindowOpenedRef.current) {
+      displayWindowOpenedRef.current.postMessage({ 
+        type: 'SYNC_STATE', 
+        state: stateRef.current, 
+        scoreboardLanguage: newLang,
+        language: newLang 
+      }, '*');
+    }
+    peerBroadcastState(stateRef.current, newLang);
+  };
   const [history, setHistory] = useState<GameState[]>([]);
   const [controlPanelWidth, setControlPanelWidth] = useState(33.33); // percentage
   const [localDisplayMode, setLocalDisplayMode] = useState<GameState['displayMode'] | null>(null);
@@ -176,7 +224,7 @@ export const App: React.FC = () => {
     isHost: !isRemoteMode && !isObsMode && !isDisplayMode,
     roomCode,
     currentState: state,
-    language,
+    language: scoreboardLanguage,
     onRemoteDispatch: (remoteAction) => {
       console.log('[Host Scoreboard] Remote action received via WebRTC P2P:', remoteAction);
       handleDispatchRef.current(remoteAction);
@@ -214,12 +262,12 @@ export const App: React.FC = () => {
             curr.meta?.broadcastMarginY === remoteState.meta?.broadcastMarginY &&
             curr.isAdjustmentMode === remoteState.isAdjustmentMode
         ) {
-          if (remoteLang && remoteLang !== language) setLanguage(remoteLang);
+          if (remoteLang && remoteLang !== scoreboardLanguage) setScoreboardLanguage(remoteLang);
           return;
         }
       }
       dispatch({ type: 'REPLACE_STATE', state: remoteState });
-      if (remoteLang) setLanguage(remoteLang);
+      if (remoteLang) setScoreboardLanguage(remoteLang);
     },
     enabled: isRemoteMode || isObsMode || !isDisplayMode,
   });
@@ -329,7 +377,11 @@ export const App: React.FC = () => {
     const channel = new BroadcastChannel('scoreboard_sync');
     channelRef.current = channel;
 
-    const handleSyncState = (newState: GameState, newLanguage?: "en" | "zh" | "ja") => {
+    const handleSyncState = (
+      newState: GameState, 
+      newScoreboardLang?: "en" | "zh" | "ja",
+      newConsoleLang?: "en" | "zh" | "ja"
+    ) => {
       if (stateRef.current) {
         const curr = stateRef.current;
         const isIdentical = 
@@ -347,19 +399,31 @@ export const App: React.FC = () => {
           JSON.stringify(curr) === JSON.stringify(newState);
 
         if (isIdentical) {
-          if (newLanguage && newLanguage !== language) setLanguage(newLanguage);
+          if (newScoreboardLang && newScoreboardLang !== scoreboardLanguage) {
+            setScoreboardLanguage(newScoreboardLang);
+          }
+          if (newConsoleLang && newConsoleLang !== consoleLanguage) {
+            setConsoleLanguage(newConsoleLang);
+          }
           return;
         }
       }
       // Direct dispatch doesn't set isLocalAction, so it won't be re-broadcasted
       dispatch({ type: 'REPLACE_STATE', state: newState });
-      if (newLanguage) setLanguage(newLanguage);
+      if (newScoreboardLang) setScoreboardLanguage(newScoreboardLang);
+      if (newConsoleLang) setConsoleLanguage(newConsoleLang);
     };
 
     const handleRequestState = () => {
       if (!isDisplayMode && !isRemoteMode) {
         const currentState = stateRef.current;
-        channel.postMessage({ type: 'SYNC_STATE', state: currentState, language });
+        channel.postMessage({ 
+          type: 'SYNC_STATE', 
+          state: currentState, 
+          scoreboardLanguage, 
+          consoleLanguage, 
+          language: scoreboardLanguage 
+        });
         localStorage.setItem('scoreboard_state', JSON.stringify(currentState));
         localStorage.setItem('scoreboard_sync_time', Date.now().toString());
       }
@@ -368,7 +432,8 @@ export const App: React.FC = () => {
     // 1. BroadcastChannel
     channel.onmessage = (event) => {
       if (event.data.type === 'SYNC_STATE') {
-        handleSyncState(event.data.state, event.data.language);
+        const sbLang = event.data.scoreboardLanguage || event.data.language;
+        handleSyncState(event.data.state, sbLang, event.data.consoleLanguage);
       } else if (event.data.type === 'REQUEST_STATE') {
         handleRequestState();
       } else if (event.data.type === 'DISPATCH') {
@@ -381,12 +446,19 @@ export const App: React.FC = () => {
     // 2. Window postMessage
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'SYNC_STATE' && event.data.state) {
-        handleSyncState(event.data.state, event.data.language);
+        const sbLang = event.data.scoreboardLanguage || event.data.language;
+        handleSyncState(event.data.state, sbLang, event.data.consoleLanguage);
       } else if (event.data?.type === 'REQUEST_STATE') {
         if (!isDisplayMode && event.source) {
           displayWindowsRef.current.add(event.source);
           try {
-            (event.source as Window).postMessage({ type: 'SYNC_STATE', state: stateRef.current, language }, '*');
+            (event.source as Window).postMessage({ 
+              type: 'SYNC_STATE', 
+              state: stateRef.current, 
+              scoreboardLanguage, 
+              consoleLanguage, 
+              language: scoreboardLanguage 
+            }, '*');
           } catch (e) {
             console.error("Failed to send state to requesting window", e);
           }
@@ -419,7 +491,13 @@ export const App: React.FC = () => {
       localStorage.setItem('scoreboard_request_state', Date.now().toString());
     } else {
       // Controller broadcasts its state on mount to sync any existing display windows or OBS
-      channel.postMessage({ type: 'SYNC_STATE', state: stateRef.current, language });
+      channel.postMessage({ 
+        type: 'SYNC_STATE', 
+        state: stateRef.current, 
+        scoreboardLanguage, 
+        consoleLanguage, 
+        language: scoreboardLanguage 
+      });
       try {
         localStorage.setItem('scoreboard_state', JSON.stringify(stateRef.current));
       } catch (e) {}
@@ -467,7 +545,13 @@ export const App: React.FC = () => {
       isLocalAction.current = false;
       if (window.opener) {
         try {
-          window.opener.postMessage({ type: 'SYNC_STATE', state, language }, '*');
+          window.opener.postMessage({ 
+            type: 'SYNC_STATE', 
+            state, 
+            scoreboardLanguage, 
+            consoleLanguage, 
+            language: scoreboardLanguage 
+          }, '*');
         } catch (e) {}
       }
       return;
@@ -478,7 +562,13 @@ export const App: React.FC = () => {
     
     // 1. BroadcastChannel
     if (channelRef.current) {
-      channelRef.current.postMessage({ type: 'SYNC_STATE', state, language });
+      channelRef.current.postMessage({ 
+        type: 'SYNC_STATE', 
+        state, 
+        scoreboardLanguage, 
+        consoleLanguage, 
+        language: scoreboardLanguage 
+      });
     }
     
     // 2. LocalStorage
@@ -489,19 +579,31 @@ export const App: React.FC = () => {
     // 3. postMessage
     if (displayWindowOpenedRef.current) {
       try {
-        displayWindowOpenedRef.current.postMessage({ type: 'SYNC_STATE', state, language }, '*');
+        displayWindowOpenedRef.current.postMessage({ 
+          type: 'SYNC_STATE', 
+          state, 
+          scoreboardLanguage, 
+          consoleLanguage, 
+          language: scoreboardLanguage 
+        }, '*');
       } catch (e) {
         // Window might be closed
       }
     }
     displayWindowsRef.current.forEach(win => {
       try {
-        (win as Window).postMessage({ type: 'SYNC_STATE', state, language }, '*');
+        (win as Window).postMessage({ 
+          type: 'SYNC_STATE', 
+          state, 
+          scoreboardLanguage, 
+          consoleLanguage, 
+          language: scoreboardLanguage 
+        }, '*');
       } catch (e) {
         displayWindowsRef.current.delete(win);
       }
     });
-  }, [state, language, isDisplayMode, isObsMode, isRemoteMode]);
+  }, [state, scoreboardLanguage, consoleLanguage, isDisplayMode, isObsMode, isRemoteMode]);
 
   const handleDispatch = (action: ActionType) => {
     // If in remote mobile mode, send action to host scoreboard via WebRTC / Cloud sync
@@ -536,9 +638,9 @@ export const App: React.FC = () => {
   // Broadcast state to all connected peers whenever host state changes
   useEffect(() => {
     if (!isRemoteMode && !isObsMode && !isDisplayMode) {
-      peerBroadcastState(state, language);
+      peerBroadcastState(state, scoreboardLanguage);
     }
-  }, [state, language, isRemoteMode, isObsMode, isDisplayMode, peerBroadcastState]);
+  }, [state, scoreboardLanguage, isRemoteMode, isObsMode, isDisplayMode, peerBroadcastState]);
 
   // Shortcuts are always enabled now
   useShortcuts(true, shortcuts, handleDispatch, state);
@@ -712,7 +814,7 @@ export const App: React.FC = () => {
             isAdjustmentMode: false,
           }}
           dispatch={handleDispatch}
-          language={language}
+          language={scoreboardLanguage}
           isVerticalFullscreen={false}
           isObsMode={true}
         />
@@ -728,7 +830,7 @@ export const App: React.FC = () => {
           <div className="absolute top-3 left-3 z-50 flex items-center gap-2 opacity-35 hover:opacity-100 transition-opacity bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700 shadow-xl">
             <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold font-mono">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>{language === 'zh' ? '遠端同步中' : 'Live Sync'} #{roomCode}</span>
+              <span>{consoleLanguage === 'zh' ? '遠端同步中' : 'Live Sync'} #{roomCode}</span>
             </div>
             <div className="h-4 w-px bg-slate-700 mx-1"></div>
             {(['default', 'lineup', 'rhe', 'broadcast'] as const).map(mode => {
@@ -753,15 +855,15 @@ export const App: React.FC = () => {
             <button
               onClick={() => setIsDisplayMode(false)}
               className="px-3 py-1.5 bg-slate-800/90 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition-all shadow-xl backdrop-blur-md border border-slate-700 flex items-center gap-1.5 cursor-pointer"
-              title={language === 'zh' ? '退出投影，返回控制台' : 'Back to Controls'}
+              title={consoleLanguage === 'zh' ? '退出投影，返回控制台' : 'Back to Controls'}
             >
               <Sliders size={14} />
-              <span>{language === 'zh' ? '返回控制台' : 'Controls'}</span>
+              <span>{consoleLanguage === 'zh' ? '返回控制台' : 'Controls'}</span>
             </button>
             <button 
               onClick={toggleFullscreen}
               className="p-2 bg-slate-800/90 hover:bg-slate-700 text-white rounded-xl transition-colors shadow-xl backdrop-blur-md border border-slate-700 cursor-pointer"
-              title={isFullscreen || isPseudoFullscreen ? (language === 'zh' ? '退出全螢幕' : 'Exit Fullscreen') : (language === 'zh' ? '全螢幕' : 'Fullscreen')}
+              title={isFullscreen || isPseudoFullscreen ? (consoleLanguage === 'zh' ? '退出全螢幕' : 'Exit Fullscreen') : (consoleLanguage === 'zh' ? '全螢幕' : 'Fullscreen')}
             >
               {isFullscreen || isPseudoFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
             </button>
@@ -774,7 +876,7 @@ export const App: React.FC = () => {
                 ref={displayRef} 
                 state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
                 dispatch={handleDispatch} 
-                language={language} 
+                language={scoreboardLanguage} 
                 isVerticalFullscreen={true} 
               />
             ) : (
@@ -792,7 +894,7 @@ export const App: React.FC = () => {
                   ref={displayRef} 
                   state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
                   dispatch={handleDispatch} 
-                  language={language} 
+                  language={scoreboardLanguage} 
                   isVerticalFullscreen={false} 
                 />
               </div>
@@ -807,7 +909,7 @@ export const App: React.FC = () => {
         <MobileRemoteView
           state={state}
           dispatch={handleDispatch}
-          language={language}
+          language={consoleLanguage}
           connectionStatus={peerStatus}
           latency={peerLatency}
           errorMessage={peerErrorMessage}
@@ -842,12 +944,12 @@ export const App: React.FC = () => {
           onClose={() => setIsGameRecordModalOpen(false)}
           state={state}
           dispatch={handleDispatch}
-          language={language}
+          language={consoleLanguage}
         />
         <ObsOverlayModal
           isOpen={isObsModalOpen}
           onClose={() => setIsObsModalOpen(false)}
-          language={language}
+          language={consoleLanguage}
           roomCode={roomCode}
           currentDisplayMode={state.displayMode}
           state={state}
@@ -872,20 +974,6 @@ export const App: React.FC = () => {
               <h1 className="text-white font-bold text-xl hidden md:block">Pro Baseball Scoreboard</h1>
               <h1 className="text-white font-bold text-xl md:hidden">PBS</h1>
             </div>
-            <select 
-              value={language}
-              onChange={(e) => {
-                const newLang = e.target.value as 'en' | 'zh' | 'ja';
-                setLanguage(newLang);
-                if (channelRef.current) channelRef.current.postMessage({ type: 'SYNC_STATE', state, language: newLang });
-                if (displayWindowOpenedRef.current) displayWindowOpenedRef.current.postMessage({ type: 'SYNC_STATE', state, language: newLang }, '*');
-              }}
-              className="ml-2 px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded transition-colors outline-none cursor-pointer border-none"
-            >
-              <option value="zh">繁體中文</option>
-              <option value="en">English</option>
-              <option value="ja">日本語</option>
-            </select>
           </div>
           
           <div className="flex items-center space-x-2 bg-slate-900 p-1 rounded-lg">
@@ -912,7 +1000,7 @@ export const App: React.FC = () => {
             <button
               onClick={() => setIsObsModalOpen(true)}
               className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center space-x-1 cursor-pointer"
-              title={language === 'zh' ? 'OBS 實況透明圖層' : language === 'ja' ? 'OBS 透過オーバーレイ' : 'OBS Overlay'}
+              title={consoleLanguage === 'zh' ? 'OBS 實況透明圖層' : consoleLanguage === 'ja' ? 'OBS 透過オーバーレイ' : 'OBS Overlay'}
             >
               <Tv size={18} />
               {isToolbarExpanded && <span className="text-xs font-medium ml-1">OBS</span>}
@@ -925,7 +1013,7 @@ export const App: React.FC = () => {
                   ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-600/40 shadow-sm'
                   : 'text-slate-400 hover:text-white hover:bg-slate-700'
               }`}
-              title={language === 'zh' ? '手機遠端遙控' : 'Mobile Remote Control'}
+              title={consoleLanguage === 'zh' ? '手機遠端遙控' : 'Mobile Remote Control'}
             >
               <Smartphone size={18} />
               {connectedClientsCount > 0 && (
@@ -933,7 +1021,7 @@ export const App: React.FC = () => {
               )}
               {isToolbarExpanded && (
                 <span className="text-xs font-medium ml-1">
-                  {language === 'zh' ? '手機遙控' : 'Remote'}
+                  {consoleLanguage === 'zh' ? '手機遙控' : 'Remote'}
                 </span>
               )}
             </button>
@@ -971,8 +1059,8 @@ export const App: React.FC = () => {
               }`}
               title={
                 isFullscreen || isPseudoFullscreen
-                  ? (language === 'zh' ? '退出全螢幕' : language === 'en' ? 'Exit Fullscreen' : '全画面終了')
-                  : (language === 'zh' ? '全螢幕' : language === 'en' ? 'Fullscreen' : '全画面')
+                  ? (consoleLanguage === 'zh' ? '退出全螢幕' : consoleLanguage === 'en' ? 'Exit Fullscreen' : '全画面終了')
+                  : (consoleLanguage === 'zh' ? '全螢幕' : consoleLanguage === 'en' ? 'Fullscreen' : '全画面')
               }
             >
               {isFullscreen || isPseudoFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
@@ -980,11 +1068,11 @@ export const App: React.FC = () => {
             <div className="w-px h-6 bg-slate-700 mx-1"></div>
             <button
               onClick={() => setIsSettingsModalOpen(true)}
-              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center space-x-1"
-              title={language === 'zh' ? '設定' : language === 'en' ? 'Settings' : '設定'}
+              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center space-x-1 cursor-pointer"
+              title={consoleLanguage === 'zh' ? '設定' : consoleLanguage === 'en' ? 'Settings' : '設定'}
             >
               <Settings size={18} />
-              {isToolbarExpanded && <span className="text-xs font-medium ml-1">{language === 'zh' ? '設定' : language === 'en' ? 'Settings' : '設定'}</span>}
+              {isToolbarExpanded && <span className="text-xs font-medium ml-1">{consoleLanguage === 'zh' ? '設定' : consoleLanguage === 'en' ? 'Settings' : '設定'}</span>}
             </button>
           </div>
         </header>
@@ -1034,8 +1122,8 @@ export const App: React.FC = () => {
                   className="absolute top-4 right-4 p-2 bg-slate-800/60 hover:bg-slate-700/80 text-white rounded-md transition-colors z-50 opacity-40 hover:opacity-100 shadow-lg backdrop-blur-xs cursor-pointer"
                   title={
                     isFullscreen || isPseudoFullscreen
-                      ? (language === 'zh' ? '退出全螢幕' : language === 'en' ? 'Exit Fullscreen' : '全画面終了')
-                      : (language === 'zh' ? '全螢幕' : language === 'en' ? 'Fullscreen' : '全画面')
+                      ? (consoleLanguage === 'zh' ? '退出全螢幕' : consoleLanguage === 'en' ? 'Exit Fullscreen' : '全画面終了')
+                      : (consoleLanguage === 'zh' ? '全螢幕' : consoleLanguage === 'en' ? 'Fullscreen' : '全画面')
                   }
                 >
                   {isFullscreen || isPseudoFullscreen ? <Minimize size={24} /> : <Maximize size={24} />}
@@ -1049,7 +1137,7 @@ export const App: React.FC = () => {
                       ref={displayRef} 
                       state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
                       dispatch={handleDispatch} 
-                      language={language} 
+                      language={scoreboardLanguage} 
                       isVerticalFullscreen={true} 
                     />
                   </div>
@@ -1074,7 +1162,7 @@ export const App: React.FC = () => {
                       ref={displayRef} 
                       state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
                       dispatch={handleDispatch} 
-                      language={language} 
+                      language={scoreboardLanguage} 
                       isVerticalFullscreen={false} 
                     />
                   </div>
@@ -1108,14 +1196,14 @@ export const App: React.FC = () => {
                   <ScoreboardControlsV2 
                     state={state} 
                     dispatch={handleDispatch} 
-                    language={language} 
+                    language={consoleLanguage} 
                     onOpenRecordModal={() => setIsGameRecordModalOpen(true)}
                   />
                 ) : (
                   <ScoreboardControls 
                     state={state} 
                     dispatch={handleDispatch} 
-                    language={language} 
+                    language={consoleLanguage} 
                     onOpenRecordModal={() => setIsGameRecordModalOpen(true)}
                   />
                 )}
@@ -1127,7 +1215,7 @@ export const App: React.FC = () => {
        {/* Footer */}
        <footer className="bg-slate-900 text-slate-500 text-[10px] text-center p-1 border-t border-slate-800 flex flex-col sm:flex-row justify-center items-center gap-1 z-50 relative">
           <span>Made by Yorunann</span>
-          <span className="text-slate-600 ml-2">v3.4.11</span>
+          <span className="text-slate-600 ml-2">v3.4.12</span>
        </footer>
 
         <ShortcutSettingsModal
@@ -1135,19 +1223,23 @@ export const App: React.FC = () => {
           onClose={() => setIsShortcutModalOpen(false)}
           shortcuts={shortcuts}
           onSave={setShortcuts}
-          language={language}
+          language={consoleLanguage}
         />
 
         <UserGuideModal
           isOpen={isUserGuideModalOpen}
           onClose={() => setIsUserGuideModalOpen(false)}
-          language={language}
+          language={consoleLanguage}
         />
 
         <SettingsModal
           isOpen={isSettingsModalOpen}
           onClose={() => setIsSettingsModalOpen(false)}
-          language={language}
+          consoleLanguage={consoleLanguage}
+          scoreboardLanguage={scoreboardLanguage}
+          onConsoleLanguageChange={handleConsoleLanguageChange}
+          onScoreboardLanguageChange={handleScoreboardLanguageChange}
+          language={consoleLanguage}
           useBetaControls={useBetaControls}
           onToggleBetaControls={handleToggleBetaControls}
         />
@@ -1157,7 +1249,7 @@ export const App: React.FC = () => {
           onClose={() => setIsGameRecordModalOpen(false)}
           state={state}
           dispatch={handleDispatch}
-          language={language}
+          language={consoleLanguage}
         />
 
         <RemoteSyncModal
@@ -1179,13 +1271,13 @@ export const App: React.FC = () => {
           onKickClient={kickClient}
           onChangeClientRole={setClientRole}
           onUnblockAll={unblockKickedClients}
-          language={language}
+          language={consoleLanguage}
         />
 
         <ObsOverlayModal
           isOpen={isObsModalOpen}
           onClose={() => setIsObsModalOpen(false)}
-          language={language}
+          language={consoleLanguage}
           roomCode={roomCode}
           currentDisplayMode={state.displayMode}
           state={state}
@@ -1223,10 +1315,10 @@ export const App: React.FC = () => {
                 <button
                   onClick={toggleFullscreen}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/90 hover:bg-slate-700 text-white rounded-lg shadow-xl backdrop-blur-md border border-slate-600 transition-all text-xs font-bold"
-                  title={language === 'zh' ? '退出全螢幕' : language === 'en' ? 'Exit Fullscreen' : '全画面終了'}
+                  title={consoleLanguage === 'zh' ? '退出全螢幕' : consoleLanguage === 'en' ? 'Exit Fullscreen' : '全画面終了'}
                 >
                   <Minimize size={16} className="text-yellow-400" />
-                  <span>{language === 'zh' ? '退出全螢幕' : language === 'en' ? 'Exit' : '終了'}</span>
+                  <span>{consoleLanguage === 'zh' ? '退出全螢幕' : consoleLanguage === 'en' ? 'Exit' : '終了'}</span>
                 </button>
               </div>
             ) : (
@@ -1235,10 +1327,10 @@ export const App: React.FC = () => {
                 <button
                   onClick={toggleFullscreen}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/80 hover:bg-slate-800 text-white/80 hover:text-white rounded-lg shadow-lg backdrop-blur-md border border-slate-700/60 text-xs font-medium cursor-pointer"
-                  title={language === 'zh' ? '退出全螢幕 (或按 ESC / 雙擊畫面)' : language === 'en' ? 'Exit Fullscreen (ESC or Double-click)' : '全画面終了'}
+                  title={consoleLanguage === 'zh' ? '退出全螢幕 (或按 ESC / 雙擊畫面)' : consoleLanguage === 'en' ? 'Exit Fullscreen (ESC or Double-click)' : '全画面終了'}
                 >
                   <Minimize size={14} className="text-yellow-400" />
-                  <span>{language === 'zh' ? '退出全螢幕' : language === 'en' ? 'Exit' : '終了'}</span>
+                  <span>{consoleLanguage === 'zh' ? '退出全螢幕' : consoleLanguage === 'en' ? 'Exit' : '終了'}</span>
                 </button>
               </div>
             )}
@@ -1249,9 +1341,9 @@ export const App: React.FC = () => {
                 <span className="text-lg shrink-0">💡</span>
                 <div className="flex-1 leading-relaxed">
                   <div className="font-bold text-yellow-300 mb-1">
-                    {language === 'zh' ? 'iPhone 全螢幕說明' : language === 'en' ? 'iPhone Fullscreen Tip' : 'iPhone 全画面ヒント'}
+                    {consoleLanguage === 'zh' ? 'iPhone 全螢幕說明' : consoleLanguage === 'en' ? 'iPhone Fullscreen Tip' : 'iPhone 全画面ヒント'}
                   </div>
-                  {language === 'zh' ? (
+                  {consoleLanguage === 'zh' ? (
                     <span>
                       已為您開啟全版沈浸模式！若想要<strong>完全隱藏 Safari 網址列與底欄</strong>，可點擊 Safari 底部「<strong>分享</strong>」按鈕 ➔ 選擇「<strong>加入主畫面</strong>」，即可像原生 App 一樣以 100% 完整無邊框全螢幕開啟！
                     </span>
@@ -1283,7 +1375,7 @@ export const App: React.FC = () => {
                   <ScoreboardDisplay 
                     state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
                     dispatch={handleDispatch} 
-                    language={language} 
+                    language={scoreboardLanguage} 
                     isVerticalFullscreen={true} 
                   />
                 </div>
@@ -1301,7 +1393,7 @@ export const App: React.FC = () => {
                   <ScoreboardDisplay 
                     state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
                     dispatch={handleDispatch} 
-                    language={language} 
+                    language={scoreboardLanguage} 
                     isVerticalFullscreen={false} 
                   />
                 </div>
@@ -1319,12 +1411,12 @@ export const App: React.FC = () => {
                   <RotateCcw size={32} />
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2">
-                  {language === 'en' ? 'Reset Game' : language === 'zh' ? '重置比賽' : '試合をリセット'}
+                  {consoleLanguage === 'en' ? 'Reset Game' : consoleLanguage === 'zh' ? '重置比賽' : '試合をリセット'}
                 </h3>
                 <p className="text-slate-400 mb-6">
-                  {language === 'en' 
+                  {consoleLanguage === 'en' 
                     ? 'Are you sure you want to reset the game? This will clear all scores, counts, pitch counts, and at-bat results, but will keep team rosters and saved archives intact.' 
-                    : language === 'zh'
+                    : consoleLanguage === 'zh'
                     ? '確定要重置比賽嗎？這將會清除所有比分、好壞球數、局數、投手用球數與選手打席紀錄，但會保留隊伍名單與已存檔的比賽紀錄。此操作無法復原。'
                     : '試合をリセットしてもよろしいですか？ スコア、カウント、投球数、打席結果はクリアされますが、チーム名簿や保存済みの記録は保持されます。'}
                 </p>
@@ -1333,13 +1425,13 @@ export const App: React.FC = () => {
                     onClick={() => setIsResetConfirmOpen(false)}
                     className="flex-1 px-4 py-3 bg-slate-700 text-white font-bold rounded-xl hover:bg-slate-600 transition-colors"
                   >
-                    {language === 'en' ? 'Cancel' : language === 'zh' ? '取消' : 'キャンセル'}
+                    {consoleLanguage === 'en' ? 'Cancel' : consoleLanguage === 'zh' ? '取消' : 'キャンセル'}
                   </button>
                   <button
                     onClick={handleConfirmReset}
                     className="flex-1 px-4 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-500 transition-colors shadow-lg shadow-red-900/20"
                   >
-                    {language === 'en' ? 'Reset All' : language === 'zh' ? '確認重置' : 'リセット'}
+                    {consoleLanguage === 'en' ? 'Reset All' : consoleLanguage === 'zh' ? '確認重置' : 'リセット'}
                   </button>
                 </div>
               </div>

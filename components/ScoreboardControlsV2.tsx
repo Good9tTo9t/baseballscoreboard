@@ -1033,7 +1033,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                         value={currentTeam.name}
                         onChange={(e) => dispatch({ type: 'UPDATE_TEAM', team: editingTeamKey, field: 'name', value: e.target.value })}
                         className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm text-white font-bold outline-none focus:border-blue-500"
-                        placeholder="Team Name"
+                        placeholder={language === 'zh' ? '隊伍名稱' : language === 'ja' ? 'チーム名' : 'Team'}
                       />
                     </div>
 
