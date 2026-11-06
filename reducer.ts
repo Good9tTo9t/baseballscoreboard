@@ -1168,11 +1168,10 @@ function baseReducer(state: GameState, action: ActionType): GameState {
           : '暴投 (WP)';
       const updatedPaEvents = [...(state.currentPaEvents || []), eventLabel];
 
-      // Increment errors (+1) on the fielding (defending) team for WP and PB (Balk does not count as error)
-      const isError = action.subType !== 'BK';
+      // Note: Official baseball rules (Rule 9.12) state that Wild Pitch (WP) and Passed Ball (PB)
+      // do NOT count as defensive fielding errors (E), though they are tracked in PA events.
       const updatedFieldingTeam = {
-        ...fieldingTeam,
-        errors: isError ? (fieldingTeam.errors || 0) + 1 : fieldingTeam.errors
+        ...fieldingTeam
       };
 
       if (runsScored > 0) {

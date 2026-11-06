@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Copy, Check, ExternalLink, Tv, Sparkles, Sliders, Info, Eye, EyeOff, Play } from 'lucide-react';
+import { X, Copy, Check, ExternalLink, Tv, Sparkles, Sliders, Info, Eye, EyeOff, Play, Layers, Users, Table, LayoutTemplate, Link2 } from 'lucide-react';
 import { GameState, ActionType } from '../types';
 
 interface ObsOverlayModalProps {
@@ -12,6 +12,108 @@ interface ObsOverlayModalProps {
   dispatch?: (action: ActionType) => void;
 }
 
+type CardKey = 'broadcast' | 'lineup' | 'rhe' | 'default' | 'sync';
+
+interface GraphicCardDef {
+  key: CardKey;
+  cardParam?: string;
+  titleZh: string;
+  titleEn: string;
+  titleJa: string;
+  descZh: string;
+  descEn: string;
+  descJa: string;
+  badgeZh: string;
+  badgeEn: string;
+  badgeJa: string;
+  badgeColor: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  recommendedSize: string;
+}
+
+const GRAPHIC_CARDS: GraphicCardDef[] = [
+  {
+    key: 'broadcast',
+    cardParam: 'broadcast',
+    titleZh: '轉播比分條 (Scorebug)',
+    titleEn: 'Broadcast Scorebug',
+    titleJa: '実況スコアバー',
+    descZh: '比賽常態專用透明計分條（左下角浮現），含用球數、打席、局數、壘包、開局滑入動畫與即時全壘打/三振特效。',
+    descEn: 'On-air lower-left scorebug with pitcher count, outs, bases, opening entrance motion, and HR/K animations.',
+    descJa: '試合常時表示用の透過スコアバー（左下配置）。球数・アウト・塁状況・開始アニメ・HR演出対応。',
+    badgeZh: '推薦比賽常駐',
+    badgeEn: 'Recommended Live',
+    badgeJa: '推奨・試合常時',
+    badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    icon: Tv,
+    recommendedSize: '1920 × 1080',
+  },
+  {
+    key: 'lineup',
+    cardParam: 'lineup',
+    titleZh: '先發打序名單卡 (Starting Lineup)',
+    titleEn: 'Starting Lineup Card',
+    titleJa: 'スタメンオーダー表',
+    descZh: '雙方先發打線完整名單字卡，顯示棒次、姓名、背號與守位，適合賽前、攻守交換或介紹先發陣容時疊加。',
+    descEn: 'Full 1-9 batting order card with positions and jersey numbers. Great for pre-game or half-inning introductions.',
+    descJa: '両チームの1〜9番スタメン一覧表。打順・背番号・守備位置を表示。試合前やイニング間に最適。',
+    badgeZh: '賽前 / 換局名單',
+    badgeEn: 'Pre-game / Lineup',
+    badgeJa: '試合前・スタメン',
+    badgeColor: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30',
+    icon: Users,
+    recommendedSize: '1920 × 1080',
+  },
+  {
+    key: 'rhe',
+    cardParam: 'rhe',
+    titleZh: '局間攻守分數盒卡 (Inning Box / RHE)',
+    titleEn: 'Inning Boxscore & RHE Card',
+    titleJa: 'イニング得点表 (RHE)',
+    descZh: '1~9 局逐局比分板與 R/H/E 總覽盒卡，清晰呈現雙方各局得失分及失誤狀況，適合攻守交替與局間休息。',
+    descEn: '1-9 inning linescore box with R/H/E totals. Clean review card during breaks or post-game analysis.',
+    descJa: '1〜9回の各イニング得点とR・H・Eまとめ表。イニング間の攻守交代や試合振り返りに。',
+    badgeZh: '局間休息盒卡',
+    badgeEn: 'Inning Breaks',
+    badgeJa: 'イニング間得点',
+    badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    icon: Table,
+    recommendedSize: '1920 × 1080',
+  },
+  {
+    key: 'default',
+    cardParam: 'default',
+    titleZh: '經典全景大計分板 (Classic Board)',
+    titleEn: 'Classic Full Stadium Scoreboard',
+    titleJa: 'クラシックスコアボード',
+    descZh: '傳統全螢幕球場計分大看板，大鐘與外野看台式經典版面，資訊最完整。',
+    descEn: 'Traditional full stadium scoreboard layout with big clock and comprehensive field stats.',
+    descJa: '球場風クラシックフルスクリーン大看板。大時計・総合スコアの定番デザイン。',
+    badgeZh: '全景大看板',
+    badgeEn: 'Full Board',
+    badgeJa: '全体ボード',
+    badgeColor: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+    icon: LayoutTemplate,
+    recommendedSize: '1920 × 1080',
+  },
+  {
+    key: 'sync',
+    cardParam: undefined,
+    titleZh: '主控動態連動源 (Sync with Controller)',
+    titleEn: 'Controller Follower (Dynamic Sync)',
+    titleJa: '操作盤連動ソース',
+    descZh: '隨主控台切換的通用來源（控制台切換打線時此來源即時切為打線，切換比分條即切為比分條）。',
+    descEn: 'All-in-one source that automatically mirrors whichever layout the main controller selects.',
+    descJa: '操作盤で選択した画面にリアルタイムで自動同期する全自動ソース。',
+    badgeZh: '隨主控切換',
+    badgeEn: 'Follows Remote',
+    badgeJa: '手動切替連動',
+    badgeColor: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+    icon: Link2,
+    recommendedSize: '1920 × 1080',
+  },
+];
+
 export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
   isOpen,
   onClose,
@@ -21,21 +123,26 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
   state,
   dispatch,
 }) => {
-  const [isCopied, setIsCopied] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<CardKey>('broadcast');
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
-  
-  // Construct OBS URL - roomCode is always included by default
-  const params = new URLSearchParams();
-  params.set('mode', 'obs');
-  if (roomCode) {
-    params.set('room', roomCode.toUpperCase());
-  }
-  
-  const obsUrl = `${origin}${pathname}?${params.toString()}`;
+
+  // Construct URL for any given card
+  const getCardUrl = (cardParam?: string) => {
+    const params = new URLSearchParams();
+    params.set('mode', 'obs');
+    if (roomCode) {
+      params.set('room', roomCode.toUpperCase());
+    }
+    if (cardParam) {
+      params.set('card', cardParam);
+    }
+    return `${origin}${pathname}?${params.toString()}`;
+  };
 
   const isBroadcastVisible = state ? (state.meta.broadcastVisible !== false) : true;
 
@@ -79,65 +186,69 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
     }
   };
 
-  const handleCopy = async () => {
+  const handleCopyCardUrl = async (card: GraphicCardDef) => {
+    const url = getCardUrl(card.cardParam);
     try {
-      await navigator.clipboard.writeText(obsUrl);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2500);
+      await navigator.clipboard.writeText(url);
+      setCopiedKey(card.key);
+      setTimeout(() => setCopiedKey(null), 2500);
     } catch {
-      // Fallback
       const input = document.createElement('input');
-      input.value = obsUrl;
+      input.value = url;
       document.body.appendChild(input);
       input.select();
       document.execCommand('copy');
       document.body.removeChild(input);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2500);
+      setCopiedKey(card.key);
+      setTimeout(() => setCopiedKey(null), 2500);
     }
   };
 
-  const handleOpenPreview = () => {
-    window.open(obsUrl, '_blank');
+  const handleOpenPreview = (cardParam?: string) => {
+    const url = getCardUrl(cardParam);
+    window.open(url, '_blank');
   };
 
+  const currentDef = GRAPHIC_CARDS.find((c) => c.key === selectedCard) || GRAPHIC_CARDS[0];
+  const activeUrl = getCardUrl(currentDef.cardParam);
+
   const t = {
-    title: language === 'zh' ? 'OBS 實況透明圖層' : language === 'ja' ? 'OBS 透過オーバーレイ' : 'OBS Transparent Overlay',
+    title: language === 'zh' ? 'OBS 轉播字卡獨立來源' : language === 'ja' ? 'OBS 透過字カード独立ソース' : 'OBS Dedicated Graphic Sources',
     subtitle: language === 'zh' 
-      ? '專為 OBS Studio / Streamlabs 設計的透明 Browser Source，無縫疊加於比賽轉播畫面！' 
+      ? '每個字卡擁有專屬獨立網址！可同時在 OBS 加入多個瀏覽器來源（如比分條與打序卡），彼此獨立顯示、互不衝突！' 
       : language === 'ja' 
-      ? 'OBS Studio / Streamlabs 専用の透過ブラウザソース。配信映像に重ねて即座にスコアを表示！'
-      : 'Transparent Browser Source designed for OBS Studio / Streamlabs to overlay real-time scoreboards onto live video streams!',
+      ? '各字カードに専用URLを発行！OBSでスコアバーとスタメンカードを同時に追加しても競合せず個別表示できます。'
+      : 'Each graphic card has its own dedicated URL! Add multiple browser sources in OBS simultaneously without collision.',
+    dedicatedCardsHeader: language === 'zh' ? '選擇字卡並獲取專屬網址' : language === 'ja' ? '字カード専用URLの取得' : 'Select Card & Copy URL',
     consoleTitle: language === 'zh' ? 'OBS 轉播即時控制台' : language === 'ja' ? 'OBS 実況リアルタイム操作盤' : 'OBS Live Broadcast Console',
     consoleDesc: language === 'zh'
       ? '遠端即時遙控 OBS 畫面！可於局間切換隱藏／顯示（開啟時自動播放開局滑入動畫），或切換版面樣式。'
       : language === 'ja'
       ? 'OBS画面を遠隔操作！イニング開始時にスコアバーを表示すると入場アニメーションが流れます。'
       : 'Live control over OBS display! Hide between innings or show to trigger half-inning start entrance animation.',
-    visibilityOn: language === 'zh' ? '轉播計分板：顯示中 (ON)' : language === 'ja' ? 'スコアバー：表示中 (ON)' : 'Scorebug: Visible (ON)',
-    visibilityOff: language === 'zh' ? '轉播計分板：已隱藏 (OFF)' : language === 'ja' ? 'スコアバー：非表示 (OFF)' : 'Scorebug: Hidden (OFF)',
+    visibilityOn: language === 'zh' ? '轉播計分條：顯示中 (ON)' : language === 'ja' ? 'スコアバー：表示中 (ON)' : 'Scorebug: Visible (ON)',
+    visibilityOff: language === 'zh' ? '轉播計分條：已隱藏 (OFF)' : language === 'ja' ? 'スコアバー：非表示 (OFF)' : 'Scorebug: Hidden (OFF)',
     visibilityOnHint: language === 'zh' ? '點擊隱藏計分條（局間休息或畫面重播時使用）' : language === 'ja' ? 'クリックで非表示（イニング間休憩やリプレイ時）' : 'Click to hide scorebug during breaks',
     visibilityOffHint: language === 'zh' ? '點擊開啟顯示（將立即播放開局滑入進場動畫！）' : language === 'ja' ? 'クリックで表示（開始アニメーションが自動再生されます！）' : 'Click to show (triggers broadcast entrance animation!)',
-    urlLabel: language === 'zh' ? '專屬透明圖層網址 (OBS 瀏覽器來源專用)' : language === 'ja' ? '専用透過URL (OBSブラウザソース用)' : 'OBS Browser Source URL',
-    copyBtn: language === 'zh' ? '複製網址' : language === 'ja' ? 'URLをコピー' : 'Copy URL',
+    copyBtn: language === 'zh' ? '複製專屬網址' : language === 'ja' ? '専用URLコピー' : 'Copy Card URL',
     copiedBtn: language === 'zh' ? '已複製！' : language === 'ja' ? 'コピー完了！' : 'Copied!',
-    previewBtn: language === 'zh' ? '開新分頁預覽' : language === 'ja' ? 'プレビュー表示' : 'Preview Overlay',
-    instructionsTitle: language === 'zh' ? 'OBS Studio 快速設定 4 步驟' : language === 'ja' ? 'OBS Studio 設定手順' : 'OBS Studio Setup in 4 Quick Steps',
-    step1: language === 'zh' ? '在 OBS 的「來源 (Sources)」面板中，點擊「+」並新增「瀏覽器 (Browser)」' : language === 'ja' ? 'OBSの「ソース」パネルで「+」を押し、「ブラウザ」を追加します' : 'In OBS "Sources" dock, click "+" and select "Browser"',
-    step2: language === 'zh' ? '將上方複製的透明圖層網址貼入「網址 (URL)」欄位' : language === 'ja' ? '上記でコピーした透過URLを「URL」項目に貼り付けます' : 'Paste the copied transparent URL into the "URL" field',
-    step3: language === 'zh' ? '將寬度設為 1920、高度設為 1080（預設全景透明，字卡自動靠邊浮現）' : language === 'ja' ? '幅を 1920、高さを 1080 に設定（背景は完全透過、左下に自動配置）' : 'Set Width to 1920 and Height to 1080 (fully transparent, auto-docked to corner)',
-    step4: language === 'zh' ? '點擊確定，計分板即時透明浮現在實況畫面上！無須手動綠幕去背。' : language === 'ja' ? '「OK」をクリック！グリーンバックなどの色抜き設定は不要で透過表示されます。' : 'Click OK! The scoreboard floats cleanly with 100% true alpha transparency.',
+    previewBtn: language === 'zh' ? '開新分頁預覽' : language === 'ja' ? 'プレビュー表示' : 'Preview',
+    instructionsTitle: language === 'zh' ? 'OBS Studio 多字卡設定說明' : language === 'ja' ? 'OBS Studio マルチソース設定' : 'OBS Studio Multi-Source Setup',
+    step1: language === 'zh' ? '在 OBS 的「來源 (Sources)」面板中，點擊「+」新增「瀏覽器 (Browser)」' : language === 'ja' ? 'OBSの「ソース」パネルで「+」を押し、「ブラウザ」を追加します' : 'In OBS "Sources", click "+" and add "Browser"',
+    step2: language === 'zh' ? '將欲顯示字卡的專屬 URL 貼入「網址 (URL)」欄位（例如比分條、打序卡）' : language === 'ja' ? '表示したいカードの専用URLを貼り付けます（スコアバーやスタメン表など）' : 'Paste the dedicated Card URL into the "URL" field',
+    step3: language === 'zh' ? '寬度設為 1920、高度設為 1080（全域透明，字卡自動靠指定錨點完美浮現）' : language === 'ja' ? '幅を 1920、高さを 1080 に設定（完全透過・自動レイアウト）' : 'Set Width to 1920 and Height to 1080 (transparent alpha layer)',
+    step4: language === 'zh' ? '若需同時疊加兩個字卡（如比分條＋打序卡），只需再新增第二個瀏覽器來源並貼上該卡專屬網址即可！' : language === 'ja' ? '複数カードを重ねる場合は、ブラウザソースをもう1つ追加して別URLを貼るだけ！' : 'To show two cards simultaneously, simply add a 2nd Browser source with its own URL!',
     tipNote: language === 'zh'
-      ? '💡 提示：全壘打動畫 (HR)、三振特效 (K)、投手用球數與跑者狀況均會即時同步播放。若需調整比分條大小或邊距，可在本機控制台「拖曳模式」調整，或在 OBS 來源按右鍵「互動 (Interact)」即時拉伸！'
+      ? '💡 提示：每個字卡都有專屬獨立來源，即便主播在控制台切換畫面，鎖定該字卡的 OBS 來源依然保持顯示該字卡，再也不用擔心同時顯示多個字卡時互相打架！'
       : language === 'ja'
-      ? '💡 ヒント：ホームラン演出、三振(K)アニメーション、投手の投球数もすべてリアルタイムで同期されます。'
-      : '💡 Tip: Home Run & Strikeout (K) animations, pitcher count, and runners sync dynamically with zero chroma key needed!',
+      ? '💡 各字カードは独立URLのため、OBS上でスコアバーとオーダー表を同時に表示しても干渉しません。'
+      : '💡 Tip: Dedicated card URLs stay locked to their respective graphics even when switching scenes, allowing multiple overlay sources to run peacefully side-by-side!',
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
       <div 
-        className="w-full max-w-2xl bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden text-white"
+        className="w-full max-w-3xl bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden text-white"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -150,7 +261,10 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
               <div className="flex items-center gap-2">
                 <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">{t.title}</h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  OBS Source
+                  OBS Multi-Card
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  v3.4.13
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{t.subtitle}</p>
@@ -168,8 +282,175 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
         {/* Modal Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1 text-sm">
           
+          {/* Card Selection Grid */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Layers size={14} className="text-indigo-400" />
+                <span>{t.dedicatedCardsHeader}</span>
+              </h3>
+              <span className="text-[11px] text-slate-400 font-mono">
+                Room: <span className="text-emerald-400 font-bold">#{roomCode}</span>
+              </span>
+            </div>
+
+            {/* Graphic Cards Selector Tabs */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              {GRAPHIC_CARDS.map((card) => {
+                const isSelected = selectedCard === card.key;
+                const IconComponent = card.icon;
+                const title = language === 'zh' ? card.titleZh.split(' (')[0] : language === 'ja' ? card.titleJa : card.titleEn;
+                const badge = language === 'zh' ? card.badgeZh : language === 'ja' ? card.badgeJa : card.badgeEn;
+                
+                return (
+                  <button
+                    key={card.key}
+                    type="button"
+                    onClick={() => setSelectedCard(card.key)}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                      isSelected
+                        ? 'bg-gradient-to-br from-indigo-900/60 to-slate-900 border-indigo-400 ring-2 ring-indigo-400/30 shadow-lg shadow-indigo-950/50'
+                        : 'bg-slate-950/60 hover:bg-slate-800/80 border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                        isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
+                      }`}>
+                        <IconComponent size={15} />
+                      </div>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${card.badgeColor}`}>
+                        {badge}
+                      </span>
+                    </div>
+
+                    <div>
+                      <div className="font-bold text-xs truncate text-white">{title}</div>
+                      <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                        {card.cardParam ? `card=${card.cardParam}` : 'sync'}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Selected Card Spotlight Box */}
+            <div className="bg-slate-950/90 border border-indigo-500/30 rounded-2xl p-4 shadow-xl space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-600/30 border border-indigo-400/40 flex items-center justify-center text-indigo-300">
+                    <currentDef.icon size={18} />
+                  </div>
+                  <div>
+                    <div className="font-bold text-sm text-white flex items-center gap-2">
+                      <span>{language === 'zh' ? currentDef.titleZh : language === 'ja' ? currentDef.titleJa : currentDef.titleEn}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${currentDef.badgeColor}`}>
+                        {language === 'zh' ? currentDef.badgeZh : language === 'ja' ? currentDef.badgeJa : currentDef.badgeEn}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {language === 'zh' ? currentDef.descZh : language === 'ja' ? currentDef.descJa : currentDef.descEn}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-slate-400 font-mono bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
+                  {language === 'zh' ? '建議畫布：' : 'Canvas: '} <span className="text-slate-200 font-bold">{currentDef.recommendedSize}</span>
+                </div>
+              </div>
+
+              {/* URL Display with Action Buttons */}
+              <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-1">
+                <div className="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2.5 font-mono text-xs text-indigo-300 overflow-x-auto whitespace-nowrap select-all shadow-inner">
+                  {activeUrl}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => handleCopyCardUrl(currentDef)}
+                    className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-lg cursor-pointer ${
+                      copiedKey === currentDef.key
+                        ? 'bg-emerald-600 text-white scale-95 shadow-emerald-900/40' 
+                        : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-900/40 active:scale-95'
+                    }`}
+                  >
+                    {copiedKey === currentDef.key ? <Check size={16} /> : <Copy size={16} />}
+                    <span>{copiedKey === currentDef.key ? t.copiedBtn : t.copyBtn}</span>
+                  </button>
+                  <button
+                    onClick={() => handleOpenPreview(currentDef.cardParam)}
+                    className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl transition-colors border border-slate-700 cursor-pointer"
+                    title={t.previewBtn}
+                  >
+                    <ExternalLink size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* All Cards Quick Copy Table (for quick setup of multiple OBS browser sources) */}
+          <div className="bg-slate-950/50 border border-slate-800 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Link2 size={14} className="text-cyan-400" />
+                <span>{language === 'zh' ? '多字卡專屬來源一覽 (可分別加入 OBS)' : 'All Dedicated Browser Sources'}</span>
+              </h4>
+              <span className="text-[11px] text-slate-400">
+                {language === 'zh' ? '點擊右側按鈕快速複製' : 'Click to copy each'}
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {GRAPHIC_CARDS.map((card) => {
+                const url = getCardUrl(card.cardParam);
+                const isCopied = copiedKey === card.key;
+                const title = language === 'zh' ? card.titleZh : language === 'ja' ? card.titleJa : card.titleEn;
+                const IconComponent = card.icon;
+
+                return (
+                  <div
+                    key={card.key}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-900/70 border border-slate-800/80 hover:border-slate-700 transition-colors text-xs"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-slate-300 shrink-0">
+                        <IconComponent size={14} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-200 truncate">{title}</div>
+                        <div className="text-[10px] text-slate-500 font-mono truncate">{url}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0 justify-end">
+                      <button
+                        onClick={() => handleCopyCardUrl(card)}
+                        className={`px-3 py-1.5 rounded-lg font-bold text-[11px] flex items-center gap-1 transition-all cursor-pointer ${
+                          isCopied
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600'
+                        }`}
+                      >
+                        {isCopied ? <Check size={13} /> : <Copy size={13} />}
+                        <span>{isCopied ? (language === 'zh' ? '已複製' : 'Copied') : (language === 'zh' ? '複製' : 'Copy')}</span>
+                      </button>
+                      <button
+                        onClick={() => handleOpenPreview(card.cardParam)}
+                        className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg border border-slate-700 cursor-pointer"
+                        title={t.previewBtn}
+                      >
+                        <ExternalLink size={13} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          
           {/* OBS Control Console Section */}
-          <div className="bg-gradient-to-br from-indigo-950/60 via-slate-800/80 to-purple-950/40 border-2 border-indigo-500/40 rounded-2xl p-4 shadow-xl space-y-3.5">
+          <div className="bg-gradient-to-br from-indigo-950/60 via-slate-800/80 to-purple-950/40 border border-indigo-500/40 rounded-2xl p-4 shadow-xl space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center text-indigo-300">
@@ -238,7 +519,7 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
             {dispatch && state && (
               <div className="pt-1.5 border-t border-indigo-500/20">
                 <div className="text-[11px] font-bold text-slate-300 mb-1.5 flex items-center justify-between">
-                  <span>{language === 'zh' ? '快速切換當前賽事顯示版面：' : 'Quick Layout Switch:'}</span>
+                  <span>{language === 'zh' ? '快速切換主控台賽事版面：' : 'Quick Layout Switch:'}</span>
                   <span className="text-[10px] text-indigo-300 font-mono">
                     {language === 'zh' ? `當前: ${state.displayMode}` : `Current: ${state.displayMode}`}
                   </span>
@@ -271,45 +552,7 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
             )}
           </div>
 
-
-
-          {/* Step 3: Generated URL */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Tv size={14} className="text-indigo-400" />
-                <span>{t.urlLabel}</span>
-              </span>
-            </label>
-
-            <div className="flex flex-col sm:flex-row items-stretch gap-2">
-              <div className="flex-1 bg-slate-950/80 border border-slate-700 rounded-xl px-3 py-2.5 font-mono text-xs text-indigo-300 overflow-x-auto whitespace-nowrap select-all shadow-inner">
-                {obsUrl}
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={handleCopy}
-                  className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-lg cursor-pointer ${
-                    isCopied 
-                      ? 'bg-emerald-600 text-white scale-95 shadow-emerald-900/40' 
-                      : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-900/40 active:scale-95'
-                  }`}
-                >
-                  {isCopied ? <Check size={16} /> : <Copy size={16} />}
-                  <span>{isCopied ? t.copiedBtn : t.copyBtn}</span>
-                </button>
-                <button
-                  onClick={handleOpenPreview}
-                  className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl transition-colors border border-slate-700 cursor-pointer"
-                  title={t.previewBtn}
-                >
-                  <ExternalLink size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Step 4: Step-by-Step Instructions */}
+          {/* Step-by-Step Instructions */}
           <div className="bg-slate-950/50 border border-slate-800 p-4 rounded-xl space-y-3">
             <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
               <Sparkles size={14} className="text-amber-400" />
@@ -345,7 +588,7 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
         {/* Footer */}
         <div className="p-4 border-t border-slate-800 bg-slate-950/80 flex items-center justify-between shrink-0">
           <div className="text-[11px] text-slate-500">
-            OBS Studio 28+ / Streamlabs Desktop Compatible
+            OBS Studio 28+ / Streamlabs Desktop Compatible • v3.4.13
           </div>
           <button
             onClick={onClose}

@@ -152,6 +152,7 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
   const [recordNotes, setRecordNotes] = useState('');
   const [copied, setCopied] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [expandedPaIds, setExpandedPaIds] = useState<Record<string, boolean>>({});
 
   // Edit draft states
   const [editingAwayTeam, setEditingAwayTeam] = useState<Team>(() => JSON.parse(JSON.stringify(state.awayTeam)));
@@ -2155,10 +2156,22 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                             ? '滿壘' 
                             : [base1 ? '一壘' : null, base2 ? '二壘' : null, base3 ? '三壘' : null].filter(Boolean).join('、') + '有人';
 
+                        const hasEvents = Boolean(pa.eventsDuringPa && pa.eventsDuringPa.length > 0);
+                        const isExpanded = Boolean(expandedPaIds[pa.id]);
+
                         return (
                           <div
                             key={pa.id || idx}
-                            className="bg-slate-950/85 border border-slate-800 hover:border-slate-700/90 rounded-2xl p-3 sm:p-4 shadow-lg transition-all hover:bg-slate-900/60"
+                            onClick={() => {
+                              if (hasEvents) {
+                                setExpandedPaIds(prev => ({ ...prev, [pa.id]: !prev[pa.id] }));
+                              }
+                            }}
+                            className={`bg-slate-950/85 border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-lg transition-all ${
+                              hasEvents 
+                                ? 'cursor-pointer hover:border-amber-500/40 hover:bg-slate-900/80' 
+                                : 'hover:border-slate-700/90 hover:bg-slate-900/60'
+                            }`}
                           >
                             {/* Card Header */}
                             <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80 text-xs">
@@ -2192,7 +2205,8 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                                 )}
                                 <button
                                   type="button"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     dispatch({ type: 'DELETE_PLAY_BY_PLAY_RECORD', id: pa.id });
                                   }}
                                   className="text-slate-500 hover:text-rose-400 transition-colors p-1 rounded hover:bg-slate-800 cursor-pointer"
@@ -2259,12 +2273,12 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                                 </div>
                               </div>
 
-                              {/* 4. Runners on Base Situation with Mini Diamond */}
+                              {/* 4. Runners on Base Situation with Mini Diamond & Event Badge */}
                               <div className="sm:col-span-2 space-y-0.5">
                                 <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                                   幾壘有人
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   {/* Mini Diamond */}
                                   <div className="relative w-6 h-6 shrink-0 flex items-center justify-center">
                                     {/* 2nd base */}
@@ -2283,9 +2297,33 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                                     <span className="absolute bottom-0 w-1.5 h-1.5 rotate-45 bg-slate-600 border border-slate-500" />
                                   </div>
 
-                                  <span className={`text-xs font-bold ${runnerCount > 0 ? 'text-amber-300' : 'text-slate-400'}`}>
-                                    {baseText}
-                                  </span>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className={`text-xs font-bold ${runnerCount > 0 ? 'text-amber-300' : 'text-slate-400'}`}>
+                                      {baseText}
+                                    </span>
+                                    {/* Subtle Event Badge right next to 幾壘有人 */}
+                                    {hasEvents && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setExpandedPaIds(prev => ({ ...prev, [pa.id]: !prev[pa.id] }));
+                                        }}
+                                        className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold border transition-all cursor-pointer select-none ${
+                                          isExpanded
+                                            ? 'bg-amber-500/25 text-amber-200 border-amber-400/50 shadow-sm shadow-amber-950/40 ring-1 ring-amber-400/30'
+                                            : 'bg-amber-500/10 text-amber-300/80 border-amber-500/25 hover:bg-amber-500/20 hover:text-amber-200'
+                                        }`}
+                                        title={isExpanded ? '點擊收合打席事件' : '此打席有暴投/捕逸等事件，點擊展開詳情'}
+                                      >
+                                        <span className="text-[10px] leading-none">⚡</span>
+                                        <span className="scale-95 origin-left">事件</span>
+                                        <span className="text-[8px] opacity-75 font-mono ml-0.5">
+                                          {isExpanded ? '▲' : '▼'}
+                                        </span>
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
 
@@ -2328,13 +2366,13 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
 
                             </div>
 
-                            {/* In-PA Events Footer (Wild Pitch, Passed Ball, Balk) */}
-                            {pa.eventsDuringPa && pa.eventsDuringPa.length > 0 && (
-                              <div className="mt-2.5 pt-2 border-t border-slate-800/70 flex items-center gap-2 text-xs">
-                                <span className="flex items-center gap-1 text-amber-400 font-bold text-[11px] bg-amber-950/60 border border-amber-500/40 px-2 py-0.5 rounded-lg">
-                                  <AlertTriangle size={12} />
-                                  <span>打席內事件：</span>
-                                  <span className="text-amber-200">{pa.eventsDuringPa.join('、')}</span>
+                            {/* In-PA Events Footer (Wild Pitch, Passed Ball, Balk) - Shown only when expanded */}
+                            {hasEvents && isExpanded && (
+                              <div className="mt-2.5 pt-2 border-t border-slate-800/70 flex items-center gap-2 text-xs animate-in fade-in slide-in-from-top-1 duration-150">
+                                <span className="flex items-center gap-1.5 text-amber-300 font-bold text-[11px] bg-amber-950/40 border border-amber-500/30 px-2.5 py-1 rounded-lg">
+                                  <AlertTriangle size={12} className="text-amber-400 shrink-0" />
+                                  <span className="text-amber-400/90 font-bold">打席內事件：</span>
+                                  <span className="text-amber-100">{pa.eventsDuringPa!.join('、')}</span>
                                 </span>
                               </div>
                             )}

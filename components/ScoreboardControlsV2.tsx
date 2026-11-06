@@ -511,9 +511,9 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                   <button
                     onClick={() => setIsWpPbModalOpen(true)}
                     className="px-1.5 py-0.5 bg-orange-700/80 hover:bg-orange-600 text-white text-[10px] font-bold rounded ml-0.5 active:scale-95 cursor-pointer"
-                    title={language === 'zh' ? '暴投 / 捕逸 (WP / PB)' : 'Wild Pitch / Passed Ball (WP/PB)'}
+                    title={language === 'zh' ? '進壘 (暴投 / 捕逸 / 犯規)' : language === 'ja' ? '進塁 (暴投 / 捕逸 / ボーク)' : 'Advance Bases (WP / PB / Balk)'}
                   >
-                    {language === 'zh' ? '暴投/捕逸' : 'WP/PB'}
+                    {language === 'zh' ? '進壘' : language === 'ja' ? '進塁' : 'Advance'}
                   </button>
                 </div>
 

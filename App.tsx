@@ -165,10 +165,11 @@ export const App: React.FC = () => {
   const [obsLayoutParam] = useState<GameState['displayMode'] | null>(() => {
     if (typeof window === 'undefined') return null;
     const urlParams = new URLSearchParams(window.location.search);
-    const layout = urlParams.get('layout');
-    if (layout === 'broadcast' || layout === 'default' || layout === 'lineup' || layout === 'rhe') {
-      return layout;
-    }
+    const card = (urlParams.get('card') || urlParams.get('layout') || '').toLowerCase();
+    if (card === 'broadcast' || card === 'scorebug') return 'broadcast';
+    if (card === 'lineup') return 'lineup';
+    if (card === 'rhe' || card === 'box' || card === 'inning') return 'rhe';
+    if (card === 'default' || card === 'classic') return 'default';
     return null;
   });
 
@@ -1215,7 +1216,7 @@ export const App: React.FC = () => {
        {/* Footer */}
        <footer className="bg-slate-900 text-slate-500 text-[10px] text-center p-1 border-t border-slate-800 flex flex-col sm:flex-row justify-center items-center gap-1 z-50 relative">
           <span>Made by Yorunann</span>
-          <span className="text-slate-600 ml-2">v3.4.12</span>
+          <span className="text-slate-600 ml-2">v3.4.13</span>
        </footer>
 
         <ShortcutSettingsModal
