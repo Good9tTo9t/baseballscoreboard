@@ -150,6 +150,8 @@ export function usePeerSync({
   const connectionsRef = useRef<Map<string, DataConnection>>(new Map());
   const clientConnRef = useRef<DataConnection | null>(null);
   const mqttClientRef = useRef<MqttClient | null>(null);
+  const webrtcConnectedRef = useRef(false);
+  const mqttConnectedRef = useRef(false);
   const roomCodeRef = useRef(roomCode);
   roomCodeRef.current = roomCode;
 
@@ -431,18 +433,16 @@ export function usePeerSync({
       timestamp: now,
     };
 
-    let sentViaWebRtc = false;
     const conn = clientConnRef.current;
     if (conn && conn.open) {
       try {
         conn.send(msg);
-        sentViaWebRtc = true;
       } catch (e) {
         console.error('[PeerSync] Error sending action to host via WebRTC', e);
       }
     }
 
-    if (!sentViaWebRtc && mqttClientRef.current && mqttClientRef.current.connected) {
+    if (mqttClientRef.current && mqttClientRef.current.connected) {
       const cleanRoom = roomCodeRef.current.trim().toLowerCase();
       if (cleanRoom) {
         try {
@@ -500,119 +500,163 @@ export function usePeerSync({
     let inactivePruneTimer: any = null;
     let reconnectAttempts = 0;
 
-    // Cloud MQTT WebSocket pub/sub
+    // Cloud MQTT WebSocket pub/sub with dual-broker failover (EMQX + HiveMQ)
     const stateTopic = `bsb3/room/${cleanRoom}/state`;
     const actionTopic = `bsb3/room/${cleanRoom}/client_to_host`;
     const controlTopic = `bsb3/room/${cleanRoom}/host_to_client`;
-    const clientId = `bsb_${isHost ? 'host' : 'cli'}_${Math.random().toString(16).substring(2, 8)}`;
+    const clientId = `bsb_${isHost ? 'host' : 'cli'}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+    const MQTT_BROKER_URLS = [
+      'wss://broker.emqx.io:8084/mqtt',
+      'wss://broker.hivemq.com:8884/mqtt',
+    ];
 
     let mqttClient: MqttClient | null = null;
-    try {
-      mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
-        clientId,
-        clean: true,
-        connectTimeout: 5000,
-        reconnectPeriod: 2500,
-      });
-      mqttClientRef.current = mqttClient;
+    let fallbackBrokerTimer: any = null;
 
-      mqttClient.on('connect', () => {
-        if (isDestroyed) return;
-        setStatus('connected');
-        setErrorMessage(null);
+    const initMqttConnection = (brokerIndex: number) => {
+      if (isDestroyed) return;
+      const brokerUrl = MQTT_BROKER_URLS[brokerIndex % MQTT_BROKER_URLS.length];
 
-        if (isHost) {
-          mqttClient?.subscribe(actionTopic);
-          const payload = JSON.stringify({
-            type: 'SYNC_STATE',
-            state: currentStateRef.current,
-            language: currentLanguageRef.current,
-            timestamp: Date.now(),
-          });
-          mqttClient?.publish(stateTopic, payload, { retain: true, qos: 0 });
-        } else {
-          // Client subscribes to state updates and host control commands
-          mqttClient?.subscribe([stateTopic, controlTopic], { qos: 0 }, (err) => {
-            if (!err) {
-              const helloPayload = JSON.stringify({
-                type: 'CLIENT_HELLO',
-                clientId: myClientId,
-                clientName: getDeviceSummary(),
-                timestamp: Date.now(),
-              });
-              mqttClient?.publish(actionTopic, helloPayload);
-              mqttClient?.publish(actionTopic, JSON.stringify({ type: 'REQUEST_STATE', clientId: myClientId, timestamp: Date.now() }));
+      try {
+        const client = mqtt.connect(brokerUrl, {
+          clientId: `${clientId}_b${brokerIndex}`,
+          clean: true,
+          connectTimeout: 4000,
+          reconnectPeriod: 2500,
+        });
+        mqttClient = client;
+        mqttClientRef.current = client;
+
+        // Auto fallback to HiveMQ if primary doesn't connect within 3.5s
+        if (brokerIndex < MQTT_BROKER_URLS.length - 1) {
+          fallbackBrokerTimer = setTimeout(() => {
+            if (!mqttConnectedRef.current && !isDestroyed) {
+              console.warn(`[PeerSync MQTT] Primary broker ${brokerUrl} timeout, falling back to backup broker...`);
+              try { client.end(true); } catch (e) {}
+              initMqttConnection(brokerIndex + 1);
             }
-          });
+          }, 3500);
         }
-      });
 
-      mqttClient.on('message', (topic, payload) => {
-        if (isDestroyed) return;
-        try {
-          const msg = JSON.parse(payload.toString()) as PeerMessage;
-          if (topic === stateTopic && msg.type === 'SYNC_STATE' && msg.state) {
-            if (!isHost) {
-              handleClientIncomingState(msg.state, msg.language, msg.stateVersion);
-            }
-          } else if (topic === controlTopic && !isHost) {
-            // Client receives host control messages (ROLE_UPDATE, KICK_CLIENT)
-            if (msg.type === 'ROLE_UPDATE') {
-              if (msg.targetClientId === myClientId || !msg.targetClientId) {
-                if (msg.role) setMyRole(msg.role);
+        client.on('connect', () => {
+          if (isDestroyed) return;
+          if (fallbackBrokerTimer) clearTimeout(fallbackBrokerTimer);
+          mqttConnectedRef.current = true;
+          setStatus('connected');
+          setErrorMessage(null);
+
+          if (isHost) {
+            client.subscribe(actionTopic);
+            const payload = JSON.stringify({
+              type: 'SYNC_STATE',
+              state: currentStateRef.current,
+              language: currentLanguageRef.current,
+              timestamp: Date.now(),
+            });
+            client.publish(stateTopic, payload, { retain: true, qos: 0 });
+          } else {
+            // Client subscribes to state updates and host control commands
+            client.subscribe([stateTopic, controlTopic], { qos: 0 }, (err) => {
+              if (!err) {
+                const helloPayload = JSON.stringify({
+                  type: 'CLIENT_HELLO',
+                  clientId: myClientId,
+                  clientName: getDeviceSummary(),
+                  timestamp: Date.now(),
+                });
+                client.publish(actionTopic, helloPayload);
+                client.publish(actionTopic, JSON.stringify({ type: 'REQUEST_STATE', clientId: myClientId, timestamp: Date.now() }));
               }
-            } else if (msg.type === 'KICK_CLIENT') {
-              if (msg.targetClientId === myClientId || !msg.targetClientId) {
-                setIsKicked(true);
-                setStatus('disconnected');
-                setErrorMessage('您的遠端遙控已被主機解除');
-                if (clientConnRef.current) {
-                  try { clientConnRef.current.close(); } catch (e) {}
+            });
+          }
+        });
+
+        client.on('message', (topic, payload) => {
+          if (isDestroyed) return;
+          try {
+            const msg = JSON.parse(payload.toString()) as PeerMessage;
+            if (topic === stateTopic && msg.type === 'SYNC_STATE' && msg.state) {
+              if (!isHost) {
+                mqttConnectedRef.current = true;
+                handleClientIncomingState(msg.state, msg.language, msg.stateVersion);
+              }
+            } else if (topic === controlTopic && !isHost) {
+              // Client receives host control messages (ROLE_UPDATE, KICK_CLIENT)
+              if (msg.type === 'ROLE_UPDATE') {
+                if (msg.targetClientId === myClientId || !msg.targetClientId) {
+                  if (msg.role) setMyRole(msg.role);
+                }
+              } else if (msg.type === 'KICK_CLIENT') {
+                if (msg.targetClientId === myClientId || !msg.targetClientId) {
+                  setIsKicked(true);
+                  setStatus('disconnected');
+                  setErrorMessage('您的遠端遙控已被主機解除');
+                  if (clientConnRef.current) {
+                    try { clientConnRef.current.close(); } catch (e) {}
+                  }
                 }
               }
-            }
-          } else if (topic === actionTopic && isHost) {
-            if (msg.type === 'CLIENT_HELLO' || msg.type === 'DEVICE_INFO' || msg.type === 'PING') {
-              registerOrUpdateClient(msg, 'mqtt');
-            } else if (msg.type === 'DISPATCH' && msg.action) {
-              const cid = msg.clientId;
-              if (cid && kickedClientIdsRef.current.has(cid)) {
-                console.warn('[PeerSync Host] Rejected action from kicked client:', cid);
-                return;
-              }
-              if (cid) {
-                const client = connectedClientsRef.current.get(cid);
-                if (client && client.role === 'viewer') {
-                  console.warn('[PeerSync Host] Rejected action from viewer client:', cid);
+            } else if (topic === actionTopic && isHost) {
+              if (msg.type === 'CLIENT_HELLO' || msg.type === 'DEVICE_INFO' || msg.type === 'PING') {
+                registerOrUpdateClient(msg, 'mqtt');
+              } else if (msg.type === 'DISPATCH' && msg.action) {
+                const cid = msg.clientId;
+                if (cid && kickedClientIdsRef.current.has(cid)) {
+                  console.warn('[PeerSync Host] Rejected action from kicked client:', cid);
                   return;
                 }
+                if (cid) {
+                  const client = connectedClientsRef.current.get(cid);
+                  if (client && client.role === 'viewer') {
+                    console.warn('[PeerSync Host] Rejected action from viewer client:', cid);
+                    return;
+                  }
+                }
+                handleHostIncomingAction(msg.action, msg.actionId);
+              } else if (msg.type === 'REQUEST_STATE') {
+                if (msg.clientId) {
+                  registerOrUpdateClient(msg, 'mqtt');
+                }
+                const resp = JSON.stringify({
+                  type: 'SYNC_STATE',
+                  state: currentStateRef.current,
+                  stateVersion: stateVersionRef.current,
+                  language: currentLanguageRef.current,
+                  timestamp: Date.now(),
+                });
+                client.publish(stateTopic, resp, { retain: true, qos: 0 });
               }
-              handleHostIncomingAction(msg.action, msg.actionId);
-            } else if (msg.type === 'REQUEST_STATE') {
-              if (msg.clientId) {
-                registerOrUpdateClient(msg, 'mqtt');
-              }
-              const resp = JSON.stringify({
-                type: 'SYNC_STATE',
-                state: currentStateRef.current,
-                stateVersion: stateVersionRef.current,
-                language: currentLanguageRef.current,
-                timestamp: Date.now(),
-              });
-              mqttClient?.publish(stateTopic, resp, { retain: true, qos: 0 });
             }
+          } catch (e) {
+            console.warn('[Cloud Sync] Failed to parse message', e);
           }
-        } catch (e) {
-          console.warn('[Cloud Sync] Failed to parse message', e);
-        }
-      });
+        });
 
-      mqttClient.on('error', (err) => {
-        console.warn('[Cloud Sync] Notice:', err);
-      });
-    } catch (e) {
-      console.warn('[Cloud Sync] Init error:', e);
-    }
+        client.on('error', (err) => {
+          console.warn('[Cloud Sync] Notice on broker ' + brokerUrl + ':', err);
+          if (!mqttConnectedRef.current && brokerIndex < MQTT_BROKER_URLS.length - 1 && !isDestroyed) {
+            if (fallbackBrokerTimer) clearTimeout(fallbackBrokerTimer);
+            try { client.end(true); } catch (e) {}
+            initMqttConnection(brokerIndex + 1);
+          }
+        });
+
+        client.on('close', () => {
+          mqttConnectedRef.current = false;
+          if (!webrtcConnectedRef.current && !isDestroyed) {
+            setStatus('connecting');
+          }
+        });
+      } catch (e) {
+        console.warn('[Cloud Sync] Init error on broker ' + brokerUrl + ':', e);
+        if (brokerIndex < MQTT_BROKER_URLS.length - 1 && !isDestroyed) {
+          initMqttConnection(brokerIndex + 1);
+        }
+      }
+    };
+
+    initMqttConnection(0);
 
     const connectClientToHost = () => {
       if (isDestroyed || !peerRef.current || peerRef.current.destroyed || isHost) return;
@@ -627,6 +671,7 @@ export function usePeerSync({
 
         conn.on('open', () => {
           if (isDestroyed) return;
+          webrtcConnectedRef.current = true;
           setStatus('connected');
           setErrorMessage(null);
 
@@ -671,17 +716,23 @@ export function usePeerSync({
 
         conn.on('close', () => {
           if (isDestroyed) return;
-          setStatus('disconnected');
-          setLatency(null);
+          webrtcConnectedRef.current = false;
+          if (!mqttConnectedRef.current) {
+            setStatus('connecting');
+            setLatency(null);
+          }
           if (!isKickedRef.current) {
             if (clientConnectTimer) clearTimeout(clientConnectTimer);
-            clientConnectTimer = setTimeout(connectClientToHost, 2500);
+            clientConnectTimer = setTimeout(connectClientToHost, 3000);
           }
         });
 
-        conn.on('error', (err) => {
+        conn.on('error', () => {
           if (isDestroyed) return;
-          setStatus('error');
+          webrtcConnectedRef.current = false;
+          if (!mqttConnectedRef.current) {
+            setStatus('connecting');
+          }
           if (!isKickedRef.current) {
             if (clientConnectTimer) clearTimeout(clientConnectTimer);
             clientConnectTimer = setTimeout(connectClientToHost, 3000);
@@ -825,20 +876,28 @@ export function usePeerSync({
           }
 
           if (errType === 'unavailable-id') {
-            setErrorMessage('房間代碼連線中...');
+            if (!mqttConnectedRef.current) {
+              setErrorMessage('房間代碼連線中...');
+            }
             setTimeout(() => {
               if (!isDestroyed) {
                 initPeer();
               }
             }, 2000);
           } else if (errType === 'peer-unavailable') {
-            setErrorMessage('等待連線至計分板...');
-            setStatus('connecting');
+            webrtcConnectedRef.current = false;
+            if (!mqttConnectedRef.current) {
+              setErrorMessage('等待連線至計分板...');
+              setStatus('connecting');
+            }
             if (clientConnectTimer) clearTimeout(clientConnectTimer);
-            clientConnectTimer = setTimeout(connectClientToHost, 2500);
+            clientConnectTimer = setTimeout(connectClientToHost, 3000);
           } else {
-            setErrorMessage(msg || '連線服務暫時無法存取');
-            setStatus('error');
+            webrtcConnectedRef.current = false;
+            if (!mqttConnectedRef.current) {
+              setErrorMessage(msg || '連線服務暫時無法存取');
+              setStatus('connecting');
+            }
           }
         });
 
@@ -944,6 +1003,7 @@ export function usePeerSync({
       window.removeEventListener('beforeunload', handleBeforeUnload);
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (clientConnectTimer) clearTimeout(clientConnectTimer);
+      if (fallbackBrokerTimer) clearTimeout(fallbackBrokerTimer);
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       if (inactivePruneTimer) clearInterval(inactivePruneTimer);
       if (hostBroadcastInterval) clearInterval(hostBroadcastInterval);

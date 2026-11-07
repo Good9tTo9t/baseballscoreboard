@@ -841,49 +841,65 @@ export const App: React.FC = () => {
   if (isRemoteMode) {
     if (isDisplayMode) {
       return (
-        <div className="fixed inset-0 bg-slate-950 flex flex-col font-sans overflow-hidden select-none">
-          {/* Remote Projection Top Bar */}
-          <div className="absolute top-3 left-3 z-50 flex items-center gap-2 opacity-35 hover:opacity-100 transition-opacity bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700 shadow-xl">
-            <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold font-mono">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>{consoleLanguage === 'zh' ? '遠端同步中' : 'Live Sync'} #{roomCode}</span>
-            </div>
-            <div className="h-4 w-px bg-slate-700 mx-1"></div>
-            {(['default', 'lineup', 'rhe', 'broadcast'] as const).map(mode => {
-              const isActive = (localDisplayMode || state.displayMode) === mode;
-              return (
-                <button
-                  key={mode}
-                  onClick={() => setLocalDisplayMode(mode)}
-                  className={`px-2.5 py-1 text-xs font-bold rounded-lg capitalize transition-colors ${
-                    isActive 
-                      ? 'bg-blue-600 text-white shadow-md' 
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  {mode}
-                </button>
-              );
-            })}
-          </div>
+        <div 
+          className="fixed inset-0 bg-slate-950 flex flex-col font-sans overflow-hidden select-none"
+          onDoubleClick={toggleFullscreen}
+        >
+          {!(isFullscreen || isPseudoFullscreen) && (
+            <>
+              {/* Remote Projection Top Bar */}
+              <div className="absolute top-3 left-3 z-50 flex items-center gap-2 opacity-35 hover:opacity-100 transition-opacity bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700 shadow-xl">
+                <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold font-mono">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>{consoleLanguage === 'zh' ? '遠端同步中' : 'Live Sync'} #{roomCode}</span>
+                </div>
+                <div className="h-4 w-px bg-slate-700 mx-1"></div>
+                {(['default', 'lineup', 'rhe', 'broadcast'] as const).map(mode => {
+                  const isActive = (localDisplayMode || state.displayMode) === mode;
+                  return (
+                    <button
+                      key={mode}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setLocalDisplayMode(mode);
+                      }}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-lg capitalize transition-colors ${
+                        isActive 
+                          ? 'bg-blue-600 text-white shadow-md' 
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                      }`}
+                    >
+                      {mode}
+                    </button>
+                  );
+                })}
+              </div>
 
-          <div className="absolute top-3 right-3 z-50 flex items-center gap-2 opacity-40 hover:opacity-100 transition-opacity">
-            <button
-              onClick={() => setIsDisplayMode(false)}
-              className="px-3 py-1.5 bg-slate-800/90 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition-all shadow-xl backdrop-blur-md border border-slate-700 flex items-center gap-1.5 cursor-pointer"
-              title={consoleLanguage === 'zh' ? '退出投影，返回控制台' : 'Back to Controls'}
-            >
-              <Sliders size={14} />
-              <span>{consoleLanguage === 'zh' ? '返回控制台' : 'Controls'}</span>
-            </button>
-            <button 
-              onClick={toggleFullscreen}
-              className="p-2 bg-slate-800/90 hover:bg-slate-700 text-white rounded-xl transition-colors shadow-xl backdrop-blur-md border border-slate-700 cursor-pointer"
-              title={isFullscreen || isPseudoFullscreen ? (consoleLanguage === 'zh' ? '退出全螢幕' : 'Exit Fullscreen') : (consoleLanguage === 'zh' ? '全螢幕' : 'Fullscreen')}
-            >
-              {isFullscreen || isPseudoFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-            </button>
-          </div>
+              <div className="absolute top-3 right-3 z-50 flex items-center gap-2 opacity-40 hover:opacity-100 transition-opacity">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsDisplayMode(false);
+                  }}
+                  className="px-3 py-1.5 bg-slate-800/90 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition-all shadow-xl backdrop-blur-md border border-slate-700 flex items-center gap-1.5 cursor-pointer"
+                  title={consoleLanguage === 'zh' ? '退出投影，返回控制台' : 'Back to Controls'}
+                >
+                  <Sliders size={14} />
+                  <span>{consoleLanguage === 'zh' ? '返回控制台' : 'Controls'}</span>
+                </button>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFullscreen();
+                  }}
+                  className="p-2 bg-slate-800/90 hover:bg-slate-700 text-white rounded-xl transition-colors shadow-xl backdrop-blur-md border border-slate-700 cursor-pointer"
+                  title={isFullscreen || isPseudoFullscreen ? (consoleLanguage === 'zh' ? '退出全螢幕' : 'Exit Fullscreen') : (consoleLanguage === 'zh' ? '全螢幕' : 'Fullscreen')}
+                >
+                  {isFullscreen || isPseudoFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+                </button>
+              </div>
+            </>
+          )}
 
           {/* Fullscreen Scoreboard Display */}
           <div className="w-full h-full p-2 sm:p-4 flex items-center justify-center overflow-hidden">
@@ -1231,7 +1247,7 @@ export const App: React.FC = () => {
        {/* Footer */}
        <footer className="bg-slate-900 text-slate-500 text-[10px] text-center p-1 border-t border-slate-800 flex flex-col sm:flex-row justify-center items-center gap-1 z-50 relative">
           <span>Made by Yorunann</span>
-          <span className="text-slate-600 ml-2">v3.4.14</span>
+          <span className="text-slate-600 ml-2">v3.5.0</span>
        </footer>
 
         <ShortcutSettingsModal
@@ -1277,6 +1293,13 @@ export const App: React.FC = () => {
             setRoomCode(newCode);
             try {
               localStorage.setItem('scoreboard_room_code', newCode);
+            } catch (e) {}
+          }}
+          onChangeRoomCode={(newCode) => {
+            const clean = newCode.toUpperCase();
+            setRoomCode(clean);
+            try {
+              localStorage.setItem('scoreboard_room_code', clean);
             } catch (e) {}
           }}
           connectionStatus={peerStatus}

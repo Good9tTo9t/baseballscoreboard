@@ -25,6 +25,7 @@ interface RemoteSyncModalProps {
   onClose: () => void;
   roomCode: string;
   onRegenerateRoomCode: () => void;
+  onChangeRoomCode?: (newCode: string) => void;
   connectionStatus: ConnectionStatus;
   connectedClientsCount: number;
   connectedClients: ConnectedClientInfo[];
@@ -41,6 +42,7 @@ export const RemoteSyncModal: React.FC<RemoteSyncModalProps> = ({
   onClose,
   roomCode,
   onRegenerateRoomCode,
+  onChangeRoomCode,
   connectionStatus,
   connectedClientsCount,
   connectedClients,
@@ -54,6 +56,7 @@ export const RemoteSyncModal: React.FC<RemoteSyncModalProps> = ({
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [manualJoinCode, setManualJoinCode] = useState('');
   const [activeTab, setActiveTab] = useState<'qr' | 'devices'>('qr');
 
   // Generate mobile remote URL
@@ -281,6 +284,62 @@ export const RemoteSyncModal: React.FC<RemoteSyncModalProps> = ({
               </div>
             </div>
           ) : null}
+
+          {/* Join from Another PC or Switch Room */}
+          <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Laptop size={16} className="text-cyan-400" />
+                <span className="text-xs font-bold text-white">
+                  {language === 'zh' ? '在另一台電腦加入此賽事 / 手動輸入代碼' : 'Join Match from Another PC'}
+                </span>
+              </div>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              {language === 'zh'
+                ? '若要在另一台電腦上同步顯示或操作本賽況，可於該電腦開啟遙控連結，或在下方輸入主機的 6 碼房間代碼：'
+                : 'To control from another PC, open the remote URL on that PC or enter a room code below:'}
+            </p>
+            <div className="flex flex-col sm:flex-row items-stretch gap-2">
+              <input
+                type="text"
+                value={manualJoinCode}
+                onChange={(e) => setManualJoinCode(e.target.value.toUpperCase())}
+                placeholder={language === 'zh' ? '輸入 6 碼房間代碼 (如 ABC123)' : 'Enter Room Code'}
+                className="flex-1 px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl font-mono text-sm font-bold text-yellow-400 placeholder:text-slate-600 uppercase tracking-wider"
+                maxLength={10}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (!manualJoinCode.trim()) return;
+                  const targetCode = manualJoinCode.trim().toUpperCase();
+                  const targetUrl = `${window.location.origin}${window.location.pathname}?mode=remote&room=${targetCode.toLowerCase()}`;
+                  window.open(targetUrl, '_blank');
+                }}
+                disabled={!manualJoinCode.trim()}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Smartphone size={14} />
+                <span>{language === 'zh' ? '另開新分頁遙控' : 'Open Remote'}</span>
+              </button>
+              {onChangeRoomCode && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!manualJoinCode.trim()) return;
+                    onChangeRoomCode(manualJoinCode.trim().toUpperCase());
+                    setManualJoinCode('');
+                  }}
+                  disabled={!manualJoinCode.trim()}
+                  className="px-4 py-2 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 disabled:opacity-40 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <RefreshCw size={14} />
+                  <span>{language === 'zh' ? '切換主控台房間' : 'Switch Room'}</span>
+                </button>
+              )}
+            </div>
+          </div>
 
           {/* Device & Permission Management (Always visible or in devices tab) */}
           <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-4">

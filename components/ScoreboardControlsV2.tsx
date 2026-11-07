@@ -1130,7 +1130,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                     </button>
                   </div>
 
-                  <div className="space-y-1.5 max-h-[260px] overflow-y-auto no-scrollbar">
+                  <div className="space-y-1.5 max-h-[260px] overflow-y-auto overflow-x-auto pb-1.5">
                     {currentTeam.lineup.map((player, idx) => (
                       <div
                         key={player.id || idx}
@@ -1216,7 +1216,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                       {language === 'zh' ? '尚無板凳球員。可點擊上方按鈕新增，或由先發名單移至板凳。' : 'No bench players yet.'}
                     </div>
                   ) : (
-                    <div className="space-y-1.5 max-h-[220px] overflow-y-auto no-scrollbar">
+                    <div className="space-y-1.5 max-h-[220px] overflow-y-auto overflow-x-auto pb-1.5">
                       {currentTeam.bench.map((player, idx) => (
                         <div
                           key={player.id || idx}
@@ -1512,6 +1512,71 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                 )}
               </div>
             </div>
+            {state.isAdjustmentMode && (
+              <div className="mt-3 p-3 bg-slate-900/90 rounded-xl border border-slate-700/80 space-y-2 text-xs">
+                <div className="flex items-center justify-between pb-1.5 border-b border-slate-700">
+                  <span className="font-bold text-slate-200">
+                    {language === 'zh' ? '打線模式大小設定' : 'Lineup Mode Sizes'}
+                  </span>
+                  <button
+                    onClick={() => {
+                      dispatch({ type: 'UPDATE_META', field: 'lineupLogoSize', value: 64 });
+                      dispatch({ type: 'UPDATE_META', field: 'lineupTeamNameSize', value: 36 });
+                      dispatch({ type: 'UPDATE_META', field: 'lineupPlayerNameSize', value: 16 });
+                    }}
+                    className="px-2 py-0.5 text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded font-bold flex items-center gap-1 transition-all"
+                  >
+                    <RotateCcw size={10} />
+                    <span>{language === 'zh' ? '重置' : 'Reset'}</span>
+                  </button>
+                </div>
+                {/* Logo size */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-slate-400 min-w-[70px]">{language === 'zh' ? '隊徽大小' : 'Logo Size'}</span>
+                  <div className="flex items-center gap-2 flex-1 justify-end">
+                    <input
+                      type="range"
+                      min="24"
+                      max="120"
+                      value={state.meta.lineupLogoSize ?? 64}
+                      onChange={(e) => dispatch({ type: 'UPDATE_META', field: 'lineupLogoSize', value: parseInt(e.target.value) || 24 })}
+                      className="w-24 accent-blue-500"
+                    />
+                    <span className="font-mono text-slate-300 w-8 text-right">{state.meta.lineupLogoSize ?? 64}px</span>
+                  </div>
+                </div>
+                {/* Team Name size */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-slate-400 min-w-[70px]">{language === 'zh' ? '隊名大小' : 'Team Name'}</span>
+                  <div className="flex items-center gap-2 flex-1 justify-end">
+                    <input
+                      type="range"
+                      min="16"
+                      max="72"
+                      value={state.meta.lineupTeamNameSize ?? 36}
+                      onChange={(e) => dispatch({ type: 'UPDATE_META', field: 'lineupTeamNameSize', value: parseInt(e.target.value) || 16 })}
+                      className="w-24 accent-blue-500"
+                    />
+                    <span className="font-mono text-slate-300 w-8 text-right">{state.meta.lineupTeamNameSize ?? 36}px</span>
+                  </div>
+                </div>
+                {/* Player Name size */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-slate-400 min-w-[70px]">{language === 'zh' ? '球員名稱' : 'Player Name'}</span>
+                  <div className="flex items-center gap-2 flex-1 justify-end">
+                    <input
+                      type="range"
+                      min="10"
+                      max="40"
+                      value={state.meta.lineupPlayerNameSize ?? 16}
+                      onChange={(e) => dispatch({ type: 'UPDATE_META', field: 'lineupPlayerNameSize', value: parseInt(e.target.value) || 10 })}
+                      className="w-24 accent-blue-500"
+                    />
+                    <span className="font-mono text-slate-300 w-8 text-right">{state.meta.lineupPlayerNameSize ?? 16}px</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

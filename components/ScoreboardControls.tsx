@@ -685,7 +685,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
               onDragEnd={handleDragEnd}
               modifiers={[restrictToVerticalAxis]}
             >
-              <div className="space-y-1 max-h-48 overflow-y-auto overflow-x-auto pr-1">
+              <div className="space-y-1 max-h-48 overflow-y-auto overflow-x-auto pr-1 pb-1.5">
                 <SortableContext items={draft.lineup.map(p => p.id)} strategy={verticalListSortingStrategy}>
                   {draft.lineup.map((player, idx) => (
                     <SortablePlayerRow 
@@ -743,7 +743,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
               onDragEnd={handleDragEnd}
               modifiers={[restrictToVerticalAxis]}
             >
-              <div className="space-y-1 max-h-40 overflow-y-auto overflow-x-auto pr-1">
+              <div className="space-y-1 max-h-40 overflow-y-auto overflow-x-auto pr-1 pb-1.5">
                 <SortableContext items={draft.bench.map(p => p.id)} strategy={verticalListSortingStrategy}>
                   {draft.bench.map((player, idx) => (
                     <SortablePlayerRow 
@@ -822,6 +822,7 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
   const [activeTab, setActiveTab] = useState<'controls' | 'info'>('controls');
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
   const [isFontSizesOpen, setIsFontSizesOpen] = useState(true);
+  const [isLineupSizesOpen, setIsLineupSizesOpen] = useState(true);
   const [isDimensionsOpen, setIsDimensionsOpen] = useState(false);
   const [isGameInfoOpen, setIsGameInfoOpen] = useState(false);
   const [isWalkModalOpen, setIsWalkModalOpen] = useState(false);
@@ -1798,6 +1799,117 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                         </select>
                      </div>
 
+                         </div>
+                       )}
+                     </div>
+
+                     {/* Lineup Mode Settings Section */}
+                     <div className="bg-white rounded border border-slate-200 overflow-hidden shadow-xs">
+                       <div 
+                         onClick={() => setIsLineupSizesOpen(prev => !prev)}
+                         className="flex items-center justify-between p-2.5 bg-slate-100/90 hover:bg-slate-200/70 cursor-pointer select-none border-b transition-colors"
+                       >
+                         <div className="flex items-center gap-1.5 font-semibold text-slate-700 text-xs">
+                           {isLineupSizesOpen ? <ChevronDown size={14} className="text-slate-500" /> : <ChevronRight size={14} className="text-slate-500" />}
+                           <span>{language === "en" ? "Lineup Mode Sizes" : language === "zh" ? "打線模式大小設定" : "オーダーモードサイズ設定"}</span>
+                         </div>
+                         <button
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             dispatch({ type: "UPDATE_META", field: "lineupLogoSize", value: 64 });
+                             dispatch({ type: "UPDATE_META", field: "lineupTeamNameSize", value: 36 });
+                             dispatch({ type: "UPDATE_META", field: "lineupPlayerNameSize", value: 16 });
+                           }}
+                           className="px-2 py-0.5 text-[10px] bg-slate-200 hover:bg-slate-300 text-slate-700 rounded flex items-center gap-1 transition-colors font-medium"
+                           title={language === "en" ? "Reset lineup mode sizes to default" : language === "zh" ? "重置打線模式大小為默認" : "打線サイズをリセット"}
+                         >
+                           <RotateCcw size={10} />
+                           <span>{language === "en" ? "Reset All" : language === "zh" ? "重置全部" : "全重置"}</span>
+                         </button>
+                       </div>
+
+                       {isLineupSizesOpen && (
+                         <div className="p-2.5 space-y-2 text-xs">
+                           {/* Lineup Logo Size */}
+                           <div className="flex items-center justify-between gap-1.5">
+                             <span className="text-slate-600 whitespace-nowrap min-w-[70px]">{language === "en" ? "Team Logo" : language === "zh" ? "打線隊徽大小" : "チームロゴ"}</span>
+                             <div className="flex items-center gap-1 flex-1 justify-end">
+                               <input type="range" min="24" max="120" value={state.meta.lineupLogoSize ?? 64} onChange={(e) => dispatch({ type: "UPDATE_META", field: "lineupLogoSize", value: parseInt(e.target.value) || 24 })} className="w-14 sm:w-20 accent-blue-600" />
+                               <input
+                                 type="number"
+                                 min="24"
+                                 max="120"
+                                 value={state.meta.lineupLogoSize ?? 64}
+                                 onChange={(e) => {
+                                   const val = parseInt(e.target.value);
+                                   if (!isNaN(val)) dispatch({ type: "UPDATE_META", field: "lineupLogoSize", value: val });
+                                 }}
+                                 className="w-11 text-center font-mono text-[11px] text-slate-700 bg-white border border-slate-300 rounded px-1 py-0.5 outline-none focus:border-blue-500"
+                               />
+                               <button
+                                 onClick={() => dispatch({ type: "UPDATE_META", field: "lineupLogoSize", value: 64 })}
+                                 className="px-1.5 py-0.5 text-[10px] bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 rounded flex items-center gap-0.5 shrink-0 transition-colors"
+                                 title={language === "en" ? "Reset to default (64)" : language === "zh" ? "重置為默認 (64)" : "デフォルト (64)"}
+                               >
+                                 <RotateCcw size={9} />
+                                 <span>{language === "en" ? "Reset" : language === "zh" ? "重置" : "デフォルト"}</span>
+                               </button>
+                             </div>
+                           </div>
+
+                           {/* Lineup Team Name Size */}
+                           <div className="flex items-center justify-between gap-1.5">
+                             <span className="text-slate-600 whitespace-nowrap min-w-[70px]">{language === "en" ? "Team Name" : language === "zh" ? "打線隊名大小" : "チーム名"}</span>
+                             <div className="flex items-center gap-1 flex-1 justify-end">
+                               <input type="range" min="16" max="72" value={state.meta.lineupTeamNameSize ?? 36} onChange={(e) => dispatch({ type: "UPDATE_META", field: "lineupTeamNameSize", value: parseInt(e.target.value) || 16 })} className="w-14 sm:w-20 accent-blue-600" />
+                               <input
+                                 type="number"
+                                 min="16"
+                                 max="72"
+                                 value={state.meta.lineupTeamNameSize ?? 36}
+                                 onChange={(e) => {
+                                   const val = parseInt(e.target.value);
+                                   if (!isNaN(val)) dispatch({ type: "UPDATE_META", field: "lineupTeamNameSize", value: val });
+                                 }}
+                                 className="w-11 text-center font-mono text-[11px] text-slate-700 bg-white border border-slate-300 rounded px-1 py-0.5 outline-none focus:border-blue-500"
+                               />
+                               <button
+                                 onClick={() => dispatch({ type: "UPDATE_META", field: "lineupTeamNameSize", value: 36 })}
+                                 className="px-1.5 py-0.5 text-[10px] bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 rounded flex items-center gap-0.5 shrink-0 transition-colors"
+                                 title={language === "en" ? "Reset to default (36)" : language === "zh" ? "重置為默認 (36)" : "デフォルト (36)"}
+                               >
+                                 <RotateCcw size={9} />
+                                 <span>{language === "en" ? "Reset" : language === "zh" ? "重置" : "デフォルト"}</span>
+                               </button>
+                             </div>
+                           </div>
+
+                           {/* Lineup Player Name Size */}
+                           <div className="flex items-center justify-between gap-1.5">
+                             <span className="text-slate-600 whitespace-nowrap min-w-[70px]">{language === "en" ? "Player Name" : language === "zh" ? "球員名稱大小" : "選手名"}</span>
+                             <div className="flex items-center gap-1 flex-1 justify-end">
+                               <input type="range" min="10" max="40" value={state.meta.lineupPlayerNameSize ?? 16} onChange={(e) => dispatch({ type: "UPDATE_META", field: "lineupPlayerNameSize", value: parseInt(e.target.value) || 10 })} className="w-14 sm:w-20 accent-blue-600" />
+                               <input
+                                 type="number"
+                                 min="10"
+                                 max="40"
+                                 value={state.meta.lineupPlayerNameSize ?? 16}
+                                 onChange={(e) => {
+                                   const val = parseInt(e.target.value);
+                                   if (!isNaN(val)) dispatch({ type: "UPDATE_META", field: "lineupPlayerNameSize", value: val });
+                                 }}
+                                 className="w-11 text-center font-mono text-[11px] text-slate-700 bg-white border border-slate-300 rounded px-1 py-0.5 outline-none focus:border-blue-500"
+                               />
+                               <button
+                                 onClick={() => dispatch({ type: "UPDATE_META", field: "lineupPlayerNameSize", value: 16 })}
+                                 className="px-1.5 py-0.5 text-[10px] bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 rounded flex items-center gap-0.5 shrink-0 transition-colors"
+                                 title={language === "en" ? "Reset to default (16)" : language === "zh" ? "重置為默認 (16)" : "デフォルト (16)"}
+                               >
+                                 <RotateCcw size={9} />
+                                 <span>{language === "en" ? "Reset" : language === "zh" ? "重置" : "デフォルト"}</span>
+                               </button>
+                             </div>
+                           </div>
                          </div>
                        )}
                      </div>

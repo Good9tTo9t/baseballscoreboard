@@ -90,6 +90,9 @@ export interface GameMeta {
   broadcastVisible?: boolean;
   broadcastAnimKey?: number;
   swapSides?: boolean;
+  lineupPlayerNameSize?: number;
+  lineupTeamNameSize?: number;
+  lineupLogoSize?: number;
   settingsVersion?: number;
 }
 

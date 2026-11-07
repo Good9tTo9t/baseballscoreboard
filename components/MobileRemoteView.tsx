@@ -226,6 +226,34 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
         </div>
       </header>
 
+      {/* Connecting status helper banner */}
+      {connectionStatus === 'connecting' && (
+        <div className="shrink-0 bg-amber-950/70 border-b border-amber-500/40 px-3 py-2 text-xs text-amber-200 flex items-center justify-between animate-in slide-in-from-top-1">
+          <div className="flex items-center gap-2 truncate">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping shrink-0" />
+            <span className="text-[11px] font-medium truncate">
+              {language === 'zh' ? `正在連線至房間 #${roomCode}...` : `Connecting to room #${roomCode}...`}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={() => setShowCodeInput(true)}
+              className="px-2 py-0.5 bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 border border-amber-500/40 rounded text-[10px] font-bold cursor-pointer transition-colors"
+            >
+              {language === 'zh' ? '更換代碼' : 'Change Room'}
+            </button>
+            {onReconnect && (
+              <button
+                onClick={onReconnect}
+                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-white rounded text-[10px] font-bold cursor-pointer transition-colors"
+              >
+                {language === 'zh' ? '重新嘗試' : 'Retry'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Viewer read-only warning ribbon */}
       {isViewer && (
         <div className="shrink-0 bg-amber-950/80 border-b border-amber-500/50 px-3 py-1.5 text-xs text-amber-200 flex items-center justify-between animate-in slide-in-from-top-1">

@@ -191,6 +191,116 @@ const resolveScoringRunners = (
   return result;
 };
 
+export const isPitcherPosition = (pos?: string): boolean => {
+  if (!pos) return false;
+  const p = pos.trim().toUpperCase();
+  return ['P', '1', '投手', '投', 'SP', 'RP', 'CP'].includes(p);
+};
+
+export function syncPitcherFromLineup(team: Team): Team {
+  const pitcherInLineup = team.lineup.find(p => isPitcherPosition(p.position));
+  if (!pitcherInLineup) return team;
+
+  // If the pitcher is already this player (matching id or matching both name & number), sync details
+  if (
+    team.pitcher &&
+    (team.pitcher.id === pitcherInLineup.id ||
+      (team.pitcher.name === pitcherInLineup.name && team.pitcher.number === pitcherInLineup.number))
+  ) {
+    if (
+      team.pitcher.name !== pitcherInLineup.name ||
+      team.pitcher.number !== pitcherInLineup.number ||
+      team.pitcher.position !== (pitcherInLineup.position || 'P')
+    ) {
+      return {
+        ...team,
+        pitcher: {
+          ...team.pitcher,
+          name: pitcherInLineup.name,
+          number: pitcherInLineup.number,
+          position: pitcherInLineup.position || 'P'
+        }
+      };
+    }
+    return team;
+  }
+
+  // Pitcher changed or was not set to this lineup player
+  const cur = team.pitcher;
+  const newHistory = (cur && cur.name && cur.name !== pitcherInLineup.name)
+    ? [...(team.pitcherHistory || []), { ...cur, isStarter: !(team.pitcherHistory && team.pitcherHistory.length > 0) }]
+    : (team.pitcherHistory || []);
+
+  const count = getPitcherCount(pitcherInLineup);
+  const newPitcher: Player = {
+    ...pitcherInLineup,
+    position: pitcherInLineup.position || 'P',
+    pitchCount: count,
+    stat: pitcherInLineup.stat || String(count),
+    strikeouts: cur ? cur.strikeouts || 0 : 0
+  };
+
+  return {
+    ...team,
+    pitcher: newPitcher,
+    pitcherHistory: newHistory
+  };
+}
+
+function autoAdvanceHalfInning(
+  state: GameState,
+  scoringRuns: number = 0,
+  battingLineupOverride?: Player[],
+  pitchingPitcherOverride?: Player,
+  nextBatterIndexOverride?: number
+): Partial<GameState> {
+  const currentTeamKey = state.isTop ? 'awayTeam' : 'homeTeam';
+  const currentTeamObj = state[currentTeamKey];
+  const currentInningIdx = state.inning - 1;
+
+  const newInningScores = [...currentTeamObj.inningScores];
+  while (newInningScores.length <= currentInningIdx) {
+    newInningScores.push(null);
+  }
+  if (scoringRuns > 0) {
+    newInningScores[currentInningIdx] = (newInningScores[currentInningIdx] || 0) + scoringRuns;
+  } else if (newInningScores[currentInningIdx] === null || newInningScores[currentInningIdx] === undefined) {
+    newInningScores[currentInningIdx] = 0;
+  }
+
+  const pitchingTeamKey = state.isTop ? 'homeTeam' : 'awayTeam';
+  const pitchingTeamObj = state[pitchingTeamKey];
+
+  return {
+    isTop: !state.isTop,
+    inning: state.isTop ? state.inning : state.inning + 1,
+    balls: 0,
+    strikes: 0,
+    outs: 0,
+    bases: [false, false, false],
+    baseRunners: [null, null, null],
+    isTimerRunning: false,
+    timer: state.initialTimer || 20,
+    currentPaEvents: [],
+    meta: {
+      ...state.meta,
+      broadcastAnimKey: Date.now()
+    },
+    [currentTeamKey]: {
+      ...currentTeamObj,
+      lineup: battingLineupOverride || currentTeamObj.lineup,
+      currentBatterIndex: nextBatterIndexOverride !== undefined ? nextBatterIndexOverride : currentTeamObj.currentBatterIndex,
+      inningScores: newInningScores
+    },
+    ...(pitchingPitcherOverride ? {
+      [pitchingTeamKey]: {
+        ...pitchingTeamObj,
+        pitcher: pitchingPitcherOverride
+      }
+    } : {})
+  };
+}
+
 export function reducer(state: GameState, action: ActionType): GameState {
   let nextState = baseReducer(state, action);
 
@@ -220,6 +330,20 @@ export function reducer(state: GameState, action: ActionType): GameState {
         }
       }
     };
+  }
+
+  // Auto-sync pitcher if lineup has a player designated as pitcher
+  if (nextState.awayTeam && nextState.awayTeam.lineup) {
+    const syncedAway = syncPitcherFromLineup(nextState.awayTeam);
+    if (syncedAway !== nextState.awayTeam) {
+      nextState = { ...nextState, awayTeam: syncedAway };
+    }
+  }
+  if (nextState.homeTeam && nextState.homeTeam.lineup) {
+    const syncedHome = syncPitcherFromLineup(nextState.homeTeam);
+    if (syncedHome !== nextState.homeTeam) {
+      nextState = { ...nextState, homeTeam: syncedHome };
+    }
   }
 
   return nextState;
@@ -367,13 +491,26 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       paRecord.strikes = 3;
       paRecord.balls = state.balls;
 
+      if (isThirdOut) {
+        return { 
+          ...state, 
+          strikeoutAnimationTrigger: (state.strikeoutAnimationTrigger || 0) + 1,
+          playByPlay: [...(state.playByPlay || []), paRecord],
+          ...autoAdvanceHalfInning(
+            state,
+            0,
+            updatedBattingLineup,
+            updatedPitcher || state[pitchingTeamKey].pitcher,
+            state.isTop ? nextAwayIndex : nextHomeIndex
+          )
+        };
+      }
+
       return { 
         ...state, 
         strikes: 0,
         balls: 0,
-        outs: isThirdOut ? 0 : state.outs + 1,
-        bases: isThirdOut ? [false, false, false] : state.bases,
-        baseRunners: isThirdOut ? [null, null, null] : state.baseRunners,
+        outs: state.outs + 1,
         strikeoutAnimationTrigger: (state.strikeoutAnimationTrigger || 0) + 1,
         playByPlay: [...(state.playByPlay || []), paRecord],
         currentPaEvents: [],
@@ -419,11 +556,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       if (state.outs >= 2) {
         return { 
           ...state, 
-          outs: 0, 
-          balls: 0, 
-          strikes: 0, 
-          bases: [false, false, false],
-          baseRunners: [null, null, null],
+          ...autoAdvanceHalfInning(state, 0)
         };
       }
       return { 
@@ -768,9 +901,29 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       paRecord.awayScore = state.isTop ? teamObj.score + runsScored : state.awayTeam.score;
       paRecord.homeScore = !state.isTop ? teamObj.score + runsScored : state.homeTeam.score;
 
+      if (willResetInning) {
+        return {
+          ...state,
+          playByPlay: [...(state.playByPlay || []), paRecord],
+          ...autoAdvanceHalfInning(state, runsScored, newLineup, undefined, nextIndex),
+          [teamKey]: {
+            ...teamObj,
+            score: teamObj.score + runsScored,
+            lineup: newLineup,
+            bench: updatedBench,
+            currentBatterIndex: nextIndex,
+            inningScores: runsScored > 0 ? updateInningScore(teamObj, state.inning, runsScored) : (
+              (teamObj.inningScores[state.inning - 1] === null || teamObj.inningScores[state.inning - 1] === undefined)
+                ? updateInningScore(teamObj, state.inning, 0)
+                : teamObj.inningScores
+            )
+          }
+        };
+      }
+
       return {
         ...state,
-        outs: willResetInning ? 0 : state.outs + 1,
+        outs: state.outs + 1,
         balls: 0,
         strikes: 0,
         bases: newBases,
@@ -828,9 +981,29 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       paRecord.awayScore = state.isTop ? teamObj.score + runsScored : state.awayTeam.score;
       paRecord.homeScore = !state.isTop ? teamObj.score + runsScored : state.homeTeam.score;
 
+      if (willResetInning) {
+        return {
+          ...state,
+          playByPlay: [...(state.playByPlay || []), paRecord],
+          ...autoAdvanceHalfInning(state, runsScored, newLineup, undefined, nextIndex),
+          [teamKey]: {
+            ...teamObj,
+            score: teamObj.score + runsScored,
+            lineup: newLineup,
+            bench: updatedBench,
+            currentBatterIndex: nextIndex,
+            inningScores: runsScored > 0 ? updateInningScore(teamObj, state.inning, runsScored) : (
+              (teamObj.inningScores[state.inning - 1] === null || teamObj.inningScores[state.inning - 1] === undefined)
+                ? updateInningScore(teamObj, state.inning, 0)
+                : teamObj.inningScores
+            )
+          }
+        };
+      }
+
       return {
         ...state,
-        outs: willResetInning ? 0 : state.outs + 1,
+        outs: state.outs + 1,
         balls: 0,
         strikes: 0,
         bases: newBases,
@@ -871,6 +1044,14 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         paRecord.strikes = 3;
       }
 
+      if (willResetInning) {
+        return {
+          ...state,
+          playByPlay: [...(state.playByPlay || []), paRecord],
+          ...autoAdvanceHalfInning(state, 0, newLineup, undefined, nextIndex)
+        };
+      }
+
       return {
         ...state,
         [teamKey]: {
@@ -878,11 +1059,11 @@ function baseReducer(state: GameState, action: ActionType): GameState {
           lineup: newLineup,
           currentBatterIndex: nextIndex
         },
-        outs: willResetInning ? 0 : state.outs + 1,
+        outs: state.outs + 1,
         balls: 0,
         strikes: 0,
-        bases: willResetInning ? [false, false, false] : state.bases,
-        baseRunners: willResetInning ? [null, null, null] : state.baseRunners,
+        bases: state.bases,
+        baseRunners: state.baseRunners,
         playByPlay: [...(state.playByPlay || []), paRecord],
         currentPaEvents: [],
       };

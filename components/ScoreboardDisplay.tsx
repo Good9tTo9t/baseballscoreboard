@@ -269,10 +269,14 @@ interface AnimatedIndicatorProps {
 }
 
 
-const TeamLogo = ({ team, isActive }: { team: Team, isActive?: boolean }) => {
+const TeamLogo = ({ team, isActive, customSize }: { team: Team, isActive?: boolean, customSize?: number }) => {
     const hasNoBorder = Boolean(team.logoNoBorder && team.logoUrl);
+    const sizeStyle = customSize ? { width: `${customSize}px`, height: `${customSize}px` } : undefined;
     return (
-        <div className="relative shrink-0 w-10 h-10 sm:w-16 sm:h-16 lg:w-20 lg:h-20">
+        <div 
+            className={`relative shrink-0 ${customSize ? '' : 'w-10 h-10 sm:w-16 sm:h-16 lg:w-20 lg:h-20'}`}
+            style={sizeStyle}
+        >
             {isActive && <div className={`absolute inset-[-2px] ${hasNoBorder ? 'rounded-lg' : 'rounded-full'} border-2 border-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.6)] animate-[pulse_2s_ease-in-out_infinite] z-20 pointer-events-none`}></div>}
             <div 
                 className={`w-full h-full flex items-center justify-center overflow-hidden z-10 ${
@@ -325,6 +329,7 @@ interface SortablePlayerItemProps {
   dispatch?: any; 
   scaleMode?: 'large' | 'medium' | 'compact';
   teamColor?: string;
+  playerNameSize?: number;
 }
 
 const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({ 
@@ -335,7 +340,8 @@ const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({
   isAway, 
   isBench, 
   scaleMode = 'medium',
-  teamColor
+  teamColor,
+  playerNameSize
 }) => {
     const {
         attributes,
@@ -363,6 +369,7 @@ const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({
     const nameTextSize = isLarge ? "text-xs sm:text-base lg:text-lg font-black" : isCompact ? "text-[10px] font-bold" : "text-xs sm:text-sm font-bold";
     const numberTextSize = isLarge ? "text-xs sm:text-sm font-semibold" : isCompact ? "text-[8px]" : "text-[9px] sm:text-[10px]";
     const posTextSize = isLarge ? "text-xs sm:text-sm font-mono font-bold" : isCompact ? "text-[9px] font-mono font-bold" : "text-[10px] sm:text-xs font-mono font-bold";
+    const nameStyle = playerNameSize ? { fontSize: `${playerNameSize}px` } : undefined;
 
     return (
         <div 
@@ -387,6 +394,7 @@ const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({
                         className={`${nameTextSize} leading-tight ${
                             isActive ? "text-white font-black" : "text-slate-200"
                         }`} 
+                        style={nameStyle}
                         align="left" 
                     >
                         <span>{p.name}</span>
@@ -522,14 +530,19 @@ const LineupColumn = ({
             {/* Header (Aligned perfectly with center score strip: h-[72px] sm:h-[88px] lg:h-[100px] border-b-2 border-slate-600) */}
             <div className="h-[72px] sm:h-[88px] lg:h-[100px] p-2.5 sm:p-3 border-b-2 border-slate-600 flex items-center gap-2.5 relative overflow-hidden shrink-0">
                  <div className="absolute inset-0 opacity-20" style={{ backgroundColor: team.color }}></div>
-                 <TeamLogo team={team} />
+                 <TeamLogo team={team} customSize={state.meta?.lineupLogoSize} />
                  <div className="flex flex-col relative z-10 min-w-0 flex-1 overflow-hidden">
                      {isObs && (
                          <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">
                              {isAway ? (language === 'zh' ? '客隊先發打線' : 'AWAY LINEUP') : (language === 'zh' ? '主隊先發打線' : 'HOME LINEUP')}
                          </span>
                      )}
-                     <AutoScalingText text={team.name} className="text-2xl sm:text-3xl lg:text-4xl font-black leading-none" align="left" />
+                     <AutoScalingText 
+                         text={team.name} 
+                         className="text-2xl sm:text-3xl lg:text-4xl font-black leading-none" 
+                         style={state.meta?.lineupTeamNameSize ? { fontSize: `${state.meta.lineupTeamNameSize}px` } : undefined}
+                         align="left" 
+                     />
                  </div>
             </div>
 
@@ -558,6 +571,7 @@ const LineupColumn = ({
                                 isBench={false}
                                 scaleMode={scaleMode}
                                 teamColor={team.baseColor || team.color}
+                                playerNameSize={state.meta?.lineupPlayerNameSize}
                             />
                         ))}
                     </SortableContext>
@@ -571,6 +585,7 @@ const LineupColumn = ({
                             <div className="flex-1 min-w-0 overflow-hidden flex items-center">
                                 <AutoCondenseText 
                                     className={`${scaleMode === 'large' ? "text-xs sm:text-base lg:text-lg font-black" : scaleMode === 'compact' ? "text-[10px] font-bold" : "text-xs sm:text-sm font-bold"} leading-tight text-slate-200`} 
+                                    style={state.meta?.lineupPlayerNameSize ? { fontSize: `${state.meta.lineupPlayerNameSize}px` } : undefined}
                                     align="left" 
                                 >
                                     <span>{team.pitcher.name}</span>
