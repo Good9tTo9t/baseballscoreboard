@@ -132,21 +132,15 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
 
-  // Construct URL for any given card
+  // Construct clean URL for any given card
   const getCardUrl = (cardParam?: string) => {
     const params = new URLSearchParams();
     params.set('mode', 'obs');
-    if (roomCode) {
-      params.set('room', roomCode.toUpperCase());
-    }
     if (cardParam) {
       params.set('card', cardParam);
     }
-    if (state) {
-      const matchData = encodeMatchData(state);
-      if (matchData) {
-        params.set('d', matchData);
-      }
+    if (roomCode) {
+      params.set('room', roomCode.toUpperCase());
     }
     return `${origin}${pathname}?${params.toString()}`;
   };
@@ -271,7 +265,7 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
                   OBS Multi-Card
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  v3.4.13
+                  v3.4.14
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{t.subtitle}</p>
@@ -369,9 +363,19 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
 
               {/* URL Display with Action Buttons */}
               <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-1">
-                <div className="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2.5 font-mono text-xs text-indigo-300 overflow-x-auto whitespace-nowrap select-all shadow-inner">
-                  {activeUrl}
-                </div>
+                <a
+                  href={activeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 bg-slate-900 hover:bg-slate-850 border border-slate-700/80 hover:border-indigo-500/70 rounded-xl px-3 py-2.5 font-mono text-xs text-indigo-300 hover:text-indigo-100 flex items-center justify-between gap-2 shadow-inner group transition-all cursor-pointer overflow-hidden"
+                  title={language === 'zh' ? '點擊直接在新分頁開啟預覽' : language === 'ja' ? 'クリックでプレビューを開く' : 'Click to open preview in new tab'}
+                >
+                  <span className="truncate group-hover:underline">{activeUrl}</span>
+                  <span className="shrink-0 flex items-center gap-1 text-[11px] text-indigo-400 group-hover:text-white bg-indigo-950/80 group-hover:bg-indigo-600 px-2 py-0.5 rounded-md border border-indigo-500/30 transition-all font-sans font-bold">
+                    <ExternalLink size={12} />
+                    <span>{language === 'zh' ? '開啟預覽' : language === 'ja' ? '開く' : 'Open'}</span>
+                  </span>
+                </a>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => handleCopyCardUrl(currentDef)}
@@ -420,13 +424,21 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
                     key={card.key}
                     className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-900/70 border border-slate-800/80 hover:border-slate-700 transition-colors text-xs"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <div className="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-slate-300 shrink-0">
                         <IconComponent size={14} />
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="font-bold text-slate-200 truncate">{title}</div>
-                        <div className="text-[10px] text-slate-500 font-mono truncate">{url}</div>
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] text-indigo-400 hover:text-indigo-200 font-mono truncate block hover:underline cursor-pointer"
+                          title={language === 'zh' ? '點擊在新分頁開啟此字卡' : language === 'ja' ? 'クリックで開く' : 'Click to open in new tab'}
+                        >
+                          {url}
+                        </a>
                       </div>
                     </div>
 
@@ -595,7 +607,7 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
         {/* Footer */}
         <div className="p-4 border-t border-slate-800 bg-slate-950/80 flex items-center justify-between shrink-0">
           <div className="text-[11px] text-slate-500">
-            OBS Studio 28+ / Streamlabs Desktop Compatible • v3.4.13
+            OBS Studio 28+ / Streamlabs Desktop Compatible • v3.4.14
           </div>
           <button
             onClick={onClose}
