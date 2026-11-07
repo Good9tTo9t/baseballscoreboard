@@ -16,6 +16,7 @@ import { RemoteSyncModal } from './components/RemoteSyncModal';
 import { ObsOverlayModal } from './components/ObsOverlayModal';
 import { MobileRemoteView } from './components/MobileRemoteView';
 import { usePeerSync } from './hooks/usePeerSync';
+import { decodeMatchData } from './utils/matchCodec';
 
 import { reducer } from './reducer';
 
@@ -30,6 +31,20 @@ const generateRoomCode = () => {
 
 const getInitialState = (init: GameState): GameState => {
   try {
+    // 1. Check if URL contains embedded match / roster data (e.g. exported OBS card URLs)
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const dataParam = urlParams.get('d') || urlParams.get('data');
+      if (dataParam) {
+        const decoded = decodeMatchData(dataParam, init);
+        return {
+          ...decoded,
+          animation: null,
+        };
+      }
+    }
+
+    // 2. Check localStorage
     const savedState = localStorage.getItem('scoreboard_state');
     if (savedState) {
       const parsed = JSON.parse(savedState);
@@ -40,7 +55,7 @@ const getInitialState = (init: GameState): GameState => {
       };
     }
   } catch (e) {
-    console.error("Failed to load initial state from localStorage", e);
+    console.error("Failed to load initial state", e);
   }
   return init;
 };

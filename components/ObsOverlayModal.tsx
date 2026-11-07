@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Copy, Check, ExternalLink, Tv, Sparkles, Sliders, Info, Eye, EyeOff, Play, Layers, Users, Table, LayoutTemplate, Link2 } from 'lucide-react';
 import { GameState, ActionType } from '../types';
+import { encodeMatchData } from '../utils/matchCodec';
 
 interface ObsOverlayModalProps {
   isOpen: boolean;
@@ -140,6 +141,12 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
     }
     if (cardParam) {
       params.set('card', cardParam);
+    }
+    if (state) {
+      const matchData = encodeMatchData(state);
+      if (matchData) {
+        params.set('d', matchData);
+      }
     }
     return `${origin}${pathname}?${params.toString()}`;
   };

@@ -191,7 +191,7 @@ export function usePeerSync({
   const handleClientIncomingState = useCallback((newState: GameState, newLang?: 'en' | 'zh' | 'ja', version?: number) => {
     if (!onRemoteStateUpdateRef.current) return;
     if (typeof version === 'number') {
-      if (version <= lastProcessedStateVersionRef.current) {
+      if (version < lastProcessedStateVersionRef.current) {
         return;
       }
       lastProcessedStateVersionRef.current = version;
@@ -892,7 +892,29 @@ export function usePeerSync({
       }, 5000);
     }
 
-    // Ping interval for client to measure latency & keep alive
+    // Periodic state broadcast for host over MQTT (retained heartbeat every 4 seconds)
+    let hostBroadcastInterval: any = null;
+    if (isHost) {
+      hostBroadcastInterval = setInterval(() => {
+        if (mqttClientRef.current && mqttClientRef.current.connected) {
+          const cleanRoom = roomCodeRef.current.trim().toLowerCase();
+          if (cleanRoom) {
+            try {
+              const msg: PeerMessage = {
+                type: 'SYNC_STATE',
+                state: currentStateRef.current,
+                stateVersion: stateVersionRef.current,
+                language: currentLanguageRef.current,
+                timestamp: Date.now(),
+              };
+              mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/state`, JSON.stringify(msg), { retain: true, qos: 0 });
+            } catch (e) {}
+          }
+        }
+      }, 4000);
+    }
+
+    // Ping & State-polling interval for client to measure latency, keep alive & ensure OBS state is synced
     let pingInterval: any = null;
     if (!isHost) {
       pingInterval = setInterval(() => {
@@ -903,7 +925,9 @@ export function usePeerSync({
         } else {
           connectClientToHost();
         }
-      }, 4000);
+        // Regularly request state from host over MQTT so newly opened OBS overlays or dropped packets sync immediately
+        requestState();
+      }, 3000);
     }
 
     const handleBeforeUnload = () => {
@@ -922,6 +946,7 @@ export function usePeerSync({
       if (clientConnectTimer) clearTimeout(clientConnectTimer);
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       if (inactivePruneTimer) clearInterval(inactivePruneTimer);
+      if (hostBroadcastInterval) clearInterval(hostBroadcastInterval);
       if (pingInterval) clearInterval(pingInterval);
       connectionsRef.current.forEach((conn) => conn.close());
       connectionsRef.current.clear();
