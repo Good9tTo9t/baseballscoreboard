@@ -14,6 +14,7 @@ import {
   Eye,
   UserX,
   RotateCcw,
+  RefreshCw,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -172,15 +173,24 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
                   已連線 {latency !== null ? `(${latency}ms)` : ''}
                 </span>
               ) : connectionStatus === 'connecting' ? (
-                <span className="text-amber-400 flex items-center gap-1">
+                <span className="text-amber-400 flex items-center gap-1 font-semibold">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
                   連線中...
                 </span>
               ) : (
-                <span className="text-red-400 flex items-center gap-1">
+                <span className="text-red-400 flex items-center gap-1 font-semibold">
                   <WifiOff size={11} />
                   未連線
                 </span>
+              )}
+              {onReconnect && (
+                <button
+                  onClick={onReconnect}
+                  title={language === 'zh' ? '點擊手動重新同步 (Sync Now)' : 'Sync Now'}
+                  className="p-1 hover:bg-slate-800 text-slate-400 hover:text-cyan-300 rounded transition-all cursor-pointer flex items-center gap-0.5 active:scale-90"
+                >
+                  <RefreshCw size={11} className={connectionStatus === 'connecting' ? 'animate-spin text-amber-400' : ''} />
+                </button>
               )}
             </div>
           </div>
@@ -226,28 +236,41 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
         </div>
       </header>
 
-      {/* Connecting status helper banner */}
-      {connectionStatus === 'connecting' && (
-        <div className="shrink-0 bg-amber-950/70 border-b border-amber-500/40 px-3 py-2 text-xs text-amber-200 flex items-center justify-between animate-in slide-in-from-top-1">
+      {/* Connecting / Disconnected status helper banner */}
+      {connectionStatus !== 'connected' && (
+        <div className={`shrink-0 ${
+          connectionStatus === 'connecting'
+            ? 'bg-amber-950/80 border-b border-amber-500/40 text-amber-200'
+            : 'bg-red-950/80 border-b border-red-500/40 text-red-200'
+        } px-3 py-2 text-xs flex items-center justify-between animate-in slide-in-from-top-1`}>
           <div className="flex items-center gap-2 truncate">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping shrink-0" />
+            {connectionStatus === 'connecting' ? (
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping shrink-0" />
+            ) : (
+              <WifiOff size={13} className="text-red-400 shrink-0" />
+            )}
             <span className="text-[11px] font-medium truncate">
-              {language === 'zh' ? `正在連線至房間 #${roomCode}...` : `Connecting to room #${roomCode}...`}
+              {errorMessage || (
+                connectionStatus === 'connecting'
+                  ? (language === 'zh' ? `正在連線至房間 #${roomCode}...` : `Connecting to room #${roomCode}...`)
+                  : (language === 'zh' ? `已與主機斷開連線 (#${roomCode})` : `Disconnected from host (#${roomCode})`)
+              )}
             </span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={() => setShowCodeInput(true)}
-              className="px-2 py-0.5 bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 border border-amber-500/40 rounded text-[10px] font-bold cursor-pointer transition-colors"
+              className="px-2 py-0.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-600/50 rounded text-[10px] font-bold cursor-pointer transition-colors"
             >
               {language === 'zh' ? '更換代碼' : 'Change Room'}
             </button>
             {onReconnect && (
               <button
                 onClick={onReconnect}
-                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-white rounded text-[10px] font-bold cursor-pointer transition-colors"
+                className="px-2 py-0.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1 shadow-sm active:scale-95"
               >
-                {language === 'zh' ? '重新嘗試' : 'Retry'}
+                <RefreshCw size={10} className={connectionStatus === 'connecting' ? 'animate-spin' : ''} />
+                <span>{language === 'zh' ? '重新同步' : 'Sync'}</span>
               </button>
             )}
           </div>

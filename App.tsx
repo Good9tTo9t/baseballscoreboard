@@ -236,6 +236,7 @@ export const App: React.FC = () => {
     broadcastState: peerBroadcastState,
     sendAction: peerSendAction,
     requestState: peerRequestState,
+    reconnect: peerReconnect,
   } = usePeerSync({
     isHost: !isRemoteMode && !isObsMode && !isDisplayMode,
     roomCode,
@@ -954,6 +955,7 @@ export const App: React.FC = () => {
             } catch (e) {}
           }}
           onReconnect={() => {
+            peerReconnect();
             peerRequestState();
           }}
           useBetaControls={useBetaControls}
