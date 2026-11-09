@@ -246,6 +246,12 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose,
                   Yorunann
                 </a>
               </div>
+              <div className="text-lg text-slate-600">
+                {language === 'en' ? 'Co-developer: ' : language === 'zh' ? '共同開發：' : '共同開発：'}
+                <a href="https://github.com/Good9tTo9t" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-bold ml-1">
+                  Good9tTo9t
+                </a>
+              </div>
             </div>
           )}
 
