@@ -1,0 +1,8 @@
+# Static hosting of the scoreboard frontend on Cloudflare Workers.
+# Deploy: npm run deploy
+name = "baseballscoreboard"
+compatibility_date = "2025-06-01"
+
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"

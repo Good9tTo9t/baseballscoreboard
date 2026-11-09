@@ -243,7 +243,7 @@ export const App: React.FC = () => {
     currentState: state,
     language: scoreboardLanguage,
     onRemoteDispatch: (remoteAction) => {
-      console.log('[Host Scoreboard] Remote action received via WebRTC P2P:', remoteAction);
+      console.log('[Host Scoreboard] Remote action received:', remoteAction);
       handleDispatchRef.current(remoteAction);
     },
     onRemoteStateUpdate: (remoteState, remoteLang) => {
@@ -623,7 +623,7 @@ export const App: React.FC = () => {
   }, [state, scoreboardLanguage, consoleLanguage, isDisplayMode, isObsMode, isRemoteMode]);
 
   const handleDispatch = (action: ActionType) => {
-    // If in remote mobile mode, send action to host scoreboard via WebRTC / Cloud sync
+    // If in remote mobile mode, send action to host scoreboard via the cloud relay
     if (isRemoteMode) {
       peerSendAction(action);
       // Immediate local dispatch provides instant tactile feedback on the phone

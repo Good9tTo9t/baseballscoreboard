@@ -437,7 +437,7 @@ export const RemoteSyncModal: React.FC<RemoteSyncModalProps> = ({
                             <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400">
                               <span className="flex items-center gap-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                                {client.transport === 'webrtc' ? '⚡ P2P 直連' : '☁️ 雲端同步'}
+                                {client.transport === 'broadcast_channel' ? '💻 本機同步' : '☁️ 雲端中繼'}
                               </span>
                               <span>•</span>
                               <span className={isViewer ? 'text-amber-400 font-semibold' : 'text-blue-400 font-semibold'}>
