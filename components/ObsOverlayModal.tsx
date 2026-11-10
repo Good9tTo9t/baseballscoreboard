@@ -265,7 +265,7 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
                   OBS Multi-Card
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  v3.6.0
+                  v3.6.1
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{t.subtitle}</p>
@@ -607,7 +607,7 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
         {/* Footer */}
         <div className="p-4 border-t border-slate-800 bg-slate-950/80 flex items-center justify-between shrink-0">
           <div className="text-[11px] text-slate-500">
-            OBS Studio 28+ / Streamlabs Desktop Compatible • v3.6.0
+            OBS Studio 28+ / Streamlabs Desktop Compatible • v3.6.1
           </div>
           <button
             onClick={onClose}

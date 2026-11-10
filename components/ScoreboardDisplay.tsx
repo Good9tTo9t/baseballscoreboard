@@ -847,6 +847,47 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
 
   // --- RENDER FUNCTIONS (Avoid Components to fix remount issues) ---
 
+  // Full-size K strikeout overlay, shared by the default and lineup layouts.
+  const renderKOverlay = () => (
+    <AnimatePresence>
+      {showKAnimation && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none backdrop-blur-sm bg-black/20"
+        >
+          <div className="relative flex items-center justify-center">
+            <span 
+              className="text-[140px] sm:text-[200px] lg:text-[240px] font-black font-rammetto leading-none" 
+              style={{ 
+                color: kColor,
+                WebkitTextStroke: '4px white',
+                filter: `drop-shadow(0 0 40px ${kColor})`
+              }}
+            >
+              K
+            </span>
+            <motion.div 
+              initial={{ opacity: 1, scale: 0.5 }}
+              animate={{ opacity: 0, scale: 1.5 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="absolute w-[150px] h-[150px] sm:w-[200px] sm:h-[200px] lg:w-[250px] lg:h-[250px] border-[8px] rounded-full" 
+              style={{ borderColor: kColor }}
+            />
+            <motion.div 
+              initial={{ opacity: 1, scale: 0.2 }}
+              animate={{ opacity: 0, scale: 2 }}
+              transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
+              className="absolute w-[150px] h-[150px] sm:w-[200px] sm:h-[200px] lg:w-[250px] lg:h-[250px] border-[4px] border-white rounded-full" 
+            />
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   const renderDefaultView = () => {
       if (isObsMode && state.meta.broadcastVisible === false) {
         return null;
@@ -1019,43 +1060,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
 
             {/* Middle: Bases & Counts */}
             <div className={isVerticalFullscreen ? "flex-1 flex flex-row items-center justify-evenly w-full relative min-h-0" : "flex-1 flex flex-col items-center justify-evenly w-full relative min-h-0"}>
-                <AnimatePresence>
-                  {showKAnimation && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none backdrop-blur-sm bg-black/20"
-                    >
-                      <div className="relative flex items-center justify-center">
-                        <span 
-                          className="text-[140px] sm:text-[200px] lg:text-[240px] font-black font-rammetto leading-none" 
-                          style={{ 
-                            color: kColor,
-                            WebkitTextStroke: '4px white',
-                            filter: `drop-shadow(0 0 40px ${kColor})`
-                          }}
-                        >
-                          K
-                        </span>
-                        <motion.div 
-                          initial={{ opacity: 1, scale: 0.5 }}
-                          animate={{ opacity: 0, scale: 1.5 }}
-                          transition={{ duration: 0.6, ease: "easeOut" }}
-                          className="absolute w-[150px] h-[150px] sm:w-[200px] sm:h-[200px] lg:w-[250px] lg:h-[250px] border-[8px] rounded-full" 
-                          style={{ borderColor: kColor }}
-                        />
-                        <motion.div 
-                          initial={{ opacity: 1, scale: 0.2 }}
-                          animate={{ opacity: 0, scale: 2 }}
-                          transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
-                          className="absolute w-[150px] h-[150px] sm:w-[200px] sm:h-[200px] lg:w-[250px] lg:h-[250px] border-[4px] border-white rounded-full" 
-                        />
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {renderKOverlay()}
                 <div className={isVerticalFullscreen ? "order-2 w-1/2 flex justify-start shrink-0 transform scale-[0.85] origin-left pl-4" : "order-1 w-auto flex justify-center shrink-0 transform scale-[0.85] lg:scale-100 origin-center"}>
                    <Diamond 
                       bases={state.bases} 
@@ -3235,6 +3240,9 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
 
   return (
     <div ref={ref} className="w-full h-full relative">
+        {state.displayMode === 'lineup' && (
+          <div className="absolute inset-0 z-[90] pointer-events-none">{renderKOverlay()}</div>
+        )}
         {state.displayMode === 'lineup' ? renderLineupView() : 
          state.displayMode === 'rhe' ? renderRHEView() : 
          state.displayMode === 'broadcast' ? renderBroadcastView() :
