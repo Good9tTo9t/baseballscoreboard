@@ -640,6 +640,10 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
   const [showScoreControlsHome, setShowScoreControlsHome] = useState(false);
   const [showScoreControlsAway, setShowScoreControlsAway] = useState(false);
   const [showKAnimation, setShowKAnimation] = useState(false);
+  // K animation uses the pitching team's colour as recorded at the strikeout, not
+  // the current isTop (which has already flipped when the K was the third out).
+  const kPitchingIsHome = state.strikeoutPitchingSide ? state.strikeoutPitchingSide === 'home' : state.isTop;
+  const kColor = kPitchingIsHome ? state.homeTeam.color : state.awayTeam.color;
   const [showUmpireControls, setShowUmpireControls] = useState(false);
   const umpireTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ignoreUmpireClickRef = useRef(false);
@@ -1028,9 +1032,9 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                         <span 
                           className="text-[140px] sm:text-[200px] lg:text-[240px] font-black font-rammetto leading-none" 
                           style={{ 
-                            color: state.isTop ? state.homeTeam.color : state.awayTeam.color,
+                            color: kColor,
                             WebkitTextStroke: '4px white',
-                            filter: `drop-shadow(0 0 40px ${state.isTop ? state.homeTeam.color : state.awayTeam.color})`
+                            filter: `drop-shadow(0 0 40px ${kColor})`
                           }}
                         >
                           K
@@ -1040,7 +1044,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                           animate={{ opacity: 0, scale: 1.5 }}
                           transition={{ duration: 0.6, ease: "easeOut" }}
                           className="absolute w-[150px] h-[150px] sm:w-[200px] sm:h-[200px] lg:w-[250px] lg:h-[250px] border-[8px] rounded-full" 
-                          style={{ borderColor: state.isTop ? state.homeTeam.color : state.awayTeam.color }}
+                          style={{ borderColor: kColor }}
                         />
                         <motion.div 
                           initial={{ opacity: 1, scale: 0.2 }}
@@ -3092,9 +3096,9 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                       <span 
                         className="text-[80px] font-black font-rammetto leading-none" 
                         style={{ 
-                          color: state.isTop ? state.homeTeam.color : state.awayTeam.color,
+                          color: kColor,
                           WebkitTextStroke: '2px white',
-                          filter: `drop-shadow(0 0 30px ${state.isTop ? state.homeTeam.color : state.awayTeam.color})`
+                          filter: `drop-shadow(0 0 30px ${kColor})`
                         }}
                       >
                         K
@@ -3104,7 +3108,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                         animate={{ opacity: 0, scale: 1.5 }}
                         transition={{ duration: 0.6, ease: "easeOut" }}
                         className="absolute w-[90px] h-[90px] border-[4px] rounded-full" 
-                        style={{ borderColor: state.isTop ? state.homeTeam.color : state.awayTeam.color }}
+                        style={{ borderColor: kColor }}
                       />
                       <motion.div 
                         initial={{ opacity: 1, scale: 0.2 }}

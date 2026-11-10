@@ -495,6 +495,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         return { 
           ...state, 
           strikeoutAnimationTrigger: (state.strikeoutAnimationTrigger || 0) + 1,
+          strikeoutPitchingSide: state.isTop ? 'home' : 'away',
           playByPlay: [...(state.playByPlay || []), paRecord],
           ...autoAdvanceHalfInning(
             state,
@@ -512,6 +513,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         balls: 0,
         outs: state.outs + 1,
         strikeoutAnimationTrigger: (state.strikeoutAnimationTrigger || 0) + 1,
+        strikeoutPitchingSide: state.isTop ? 'home' : 'away',
         playByPlay: [...(state.playByPlay || []), paRecord],
         currentPaEvents: [],
         awayTeam: {
@@ -545,6 +547,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       return {
         ...state,
         strikeoutAnimationTrigger: (state.strikeoutAnimationTrigger || 0) + 1,
+        strikeoutPitchingSide: state.isTop ? 'home' : 'away',
         [pitchingTeamKey]: {
           ...state[pitchingTeamKey],
           pitcher: updatedPitcher || state[pitchingTeamKey].pitcher

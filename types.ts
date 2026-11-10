@@ -176,6 +176,9 @@ export interface GameState {
   
   meta: GameMeta;
   strikeoutAnimationTrigger?: number;
+  // Which side was pitching when the latest strikeout happened. Recorded at the
+  // moment of the K because a third-out strikeout flips isTop in the same step.
+  strikeoutPitchingSide?: 'home' | 'away';
   isAdjustmentMode?: boolean;
   initialTimer: number;
 
